@@ -11,22 +11,22 @@ import LoginPage from './pages/auth/LoginPage';
 
 // Student pages
 import StudentProfile from './pages/student/StudentProfile';
+import StudentAttendance from './pages/student/StudentAttendance';       // ← NEW file
 import {
   StudentResults,
   StudentTimetable,
-  StudentAttendance,
   StudentFeeHistory,
   StudentPayFee,
-} from './pages/student/StudentPages';
+} from './pages/student/StudentPages';                                    // ← removed StudentAttendance from here
 
 // Teacher pages
 import TeacherProfile from './pages/teacher/TeacherProfile';
+import TeacherUploadAttendance from './pages/teacher/TeacherUploadAttendance'; // ← NEW file
 import {
   TeacherTimetable,
   TeacherClassData,
-  TeacherUploadAttendance,
   TeacherUploadMarks,
-} from './pages/teacher/TeacherPages';
+} from './pages/teacher/TeacherPages';                                    // ← removed TeacherUploadAttendance from here
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
