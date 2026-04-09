@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
 
 // Layouts
 import DashboardLayout from './components/layouts/DashboardLayout';
@@ -7,7 +6,6 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 
 // Public pages
 import LandingPage from './pages/public/LandingPage';
-import LoginPage from './pages/auth/LoginPage';
 
 // Student pages
 import StudentProfile from './pages/student/StudentProfile';
@@ -21,7 +19,8 @@ import {
 
 // Teacher pages
 import TeacherProfile from './pages/teacher/TeacherProfile';
-import TeacherUploadAttendance from './pages/teacher/TeacherUploadAttendance'; // ← NEW file
+import TeacherUploadAttendance from './pages/teacher/TeacherUploadAttendance';
+import TeacherMyAttendance from './pages/teacher/TeacherMyAttendance';
 import {
   TeacherTimetable,
   TeacherClassData,
@@ -47,18 +46,14 @@ import {
   AdminRemoveStudent,
 } from './pages/admin/AdminPages';
 import AdminAddStudent from './pages/admin/AdminAddStudent';
+import AdminTeacherAttendanceReport from './pages/admin/AdminTeacherAttendanceReport';
 
 export default function App() {
-  const { user } = useAuth();
-
   return (
     <Routes>
       {/* ===== PUBLIC ===== */}
       <Route path="/" element={<LandingPage />} />
-      <Route
-        path="/login"
-        element={user ? <Navigate to={`/${user.role}`} replace /> : <LoginPage />}
-      />
+      <Route path="/login" element={<Navigate to="/admin" replace />} />
 
       {/* ===== STUDENT DASHBOARD ===== */}
       <Route
@@ -90,6 +85,7 @@ export default function App() {
         <Route path="timetable" element={<TeacherTimetable />} />
         <Route path="class-data" element={<TeacherClassData />} />
         <Route path="upload-attendance" element={<TeacherUploadAttendance />} />
+        <Route path="my-attendance" element={<TeacherMyAttendance />} />
         <Route path="upload-marks" element={<TeacherUploadMarks />} />
       </Route>
 
@@ -106,6 +102,7 @@ export default function App() {
         <Route path="students" element={<AdminStudents />} />
         <Route path="teachers" element={<AdminTeachers />} />
         <Route path="teacher-attendance" element={<AdminTeacherAttendance />} />
+        <Route path="teacher-attendance-report" element={<AdminTeacherAttendanceReport />} />
         <Route path="fee-individual" element={<AdminFeeIndividual />} />
         <Route path="fee-dues" element={<AdminFeeDues />} />
         <Route path="fee-classwise" element={<AdminFeeClasswise />} />

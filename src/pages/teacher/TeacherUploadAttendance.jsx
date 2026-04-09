@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import {
   Users,
-  Calendar,
   Check,
+  CheckCircle2,
   Loader2,
   ChevronDown,
   Send,
   AlertCircle,
   CheckSquare,
   XSquare,
+  Pencil,
 } from 'lucide-react';
 import {
   getTeacherClasses,
@@ -27,8 +28,8 @@ export default function TeacherUploadAttendance() {
   const [students, setStudents] = useState([]);
   const [classInfo, setClassInfo] = useState(null);
   const [attendance, setAttendance] = useState({}); // { studentId: 'present' | 'absent' }
-  const [teacherId, setTeacherId] = useState(null);
   const [alreadyMarked, setAlreadyMarked] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
 
   // Loading / feedback
   const [loadingClasses, setLoadingClasses] = useState(true);
@@ -53,7 +54,6 @@ export default function TeacherUploadAttendance() {
       setLoadingClasses(true);
       const res = await getTeacherClasses();
       setClasses(res.data.classes || []);
-      setTeacherId(res.data.teacherId);
     } catch (err) {
       console.error('Failed to fetch classes:', err);
       showToast('error', 'Failed to load your classes');
@@ -77,6 +77,7 @@ export default function TeacherUploadAttendance() {
       const attendanceRes = await getAttendanceByDate(classId, selectedDate);
       if (attendanceRes.data.alreadyMarked) {
         setAlreadyMarked(true);
+        setIsViewMode(true);
         // Pre-fill with existing attendance
         const existing = {};
         attendanceRes.data.records.forEach((r) => {
@@ -85,6 +86,7 @@ export default function TeacherUploadAttendance() {
         setAttendance(existing);
       } else {
         // Default all to 'present'
+        setIsViewMode(false);
         const defaultAttendance = {};
         studentsList.forEach((s) => {
           defaultAttendance[s.id] = 'present';
@@ -143,6 +145,7 @@ export default function TeacherUploadAttendance() {
         `${alreadyMarked ? 'Updated' : 'Submitted'} — ${res.data.present} present, ${res.data.absent} absent`
       );
       setAlreadyMarked(true);
+      setIsViewMode(true);
     } catch (err) {
       console.error('Failed to submit:', err);
       showToast('error', err.response?.data?.message || 'Failed to submit attendance');
@@ -271,29 +274,36 @@ export default function TeacherUploadAttendance() {
                   month: 'long',
                   year: 'numeric',
                 })}
-                {alreadyMarked && (
+                {alreadyMarked && isViewMode && (
+                  <span className="ml-2 inline-flex items-center gap-1 text-emerald-600 font-medium">
+                    <CheckCircle2 className="w-3 h-3" /> Attendance saved
+                  </span>
+                )}
+                {alreadyMarked && !isViewMode && (
                   <span className="ml-2 inline-flex items-center gap-1 text-amber-600 font-medium">
-                    <AlertCircle className="w-3 h-3" /> Already marked — editing
+                    <AlertCircle className="w-3 h-3" /> Editing
                   </span>
                 )}
               </p>
             </div>
 
-            {/* Quick Actions */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={markAllPresent}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-              >
-                <CheckSquare className="w-3.5 h-3.5" /> Select All
-              </button>
-              <button
-                onClick={markAllAbsent}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-              >
-                <XSquare className="w-3.5 h-3.5" /> Deselect All
-              </button>
-            </div>
+            {/* Quick Actions — only in edit mode */}
+            {!isViewMode && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={markAllPresent}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                >
+                  <CheckSquare className="w-3.5 h-3.5" /> Select All
+                </button>
+                <button
+                  onClick={markAllAbsent}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                >
+                  <XSquare className="w-3.5 h-3.5" /> Deselect All
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Stats Summary */}
@@ -325,8 +335,10 @@ export default function TeacherUploadAttendance() {
               return (
                 <div
                   key={student.id}
-                  onClick={() => toggleStatus(student.id)}
-                  className="flex items-center px-6 py-3.5 cursor-pointer transition-colors hover:bg-gray-50/60"
+                  onClick={() => !isViewMode && toggleStatus(student.id)}
+                  className={`flex items-center px-6 py-3.5 transition-colors ${
+                    isViewMode ? 'cursor-default' : 'cursor-pointer hover:bg-gray-50/60'
+                  }`}
                 >
                   {/* Roll Number */}
                   <span className="text-xs font-mono text-gray-400 w-7 text-center">
@@ -336,12 +348,12 @@ export default function TeacherUploadAttendance() {
                   {/* Avatar */}
                   <div
                     className={`w-9 h-9 rounded-full flex items-center justify-center ml-2.5 flex-shrink-0 ${
-                      isPresent ? 'bg-teacher-light' : 'bg-red-50'
+                      isPresent ? 'bg-teacher-100' : 'bg-red-50'
                     }`}
                   >
                     <span
                       className={`text-sm font-bold ${
-                        isPresent ? 'text-teacher-primary' : 'text-red-500'
+                        isPresent ? 'text-teacher-500' : 'text-red-500'
                       }`}
                     >
                       {(student.user?.name || 'S')[0].toUpperCase()}
@@ -377,27 +389,44 @@ export default function TeacherUploadAttendance() {
             })}
           </div>
 
-          {/* Submit Footer */}
+          {/* Footer */}
           <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
-            <p className="text-xs text-gray-500">
-              Review before submitting. You can update later for the same date.
-            </p>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teacher-primary text-white text-sm font-semibold hover:bg-teacher-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  {alreadyMarked ? 'Update Attendance' : 'Submit Attendance'}
-                </>
-              )}
-            </button>
+            {isViewMode ? (
+              <>
+                <p className="text-xs text-gray-500">
+                  Attendance saved. Click Edit to make changes.
+                </p>
+                <button
+                  onClick={() => setIsViewMode(false)}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-teacher-500 text-teacher-500 text-sm font-semibold hover:bg-teacher-50 transition-all"
+                >
+                  <Pencil className="w-4 h-4" />
+                  Edit
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500">
+                  Review before submitting. You can update later for the same date.
+                </p>
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teacher-500 text-white text-sm font-semibold hover:bg-teacher-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      {alreadyMarked ? 'Update Attendance' : 'Submit Attendance'}
+                    </>
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

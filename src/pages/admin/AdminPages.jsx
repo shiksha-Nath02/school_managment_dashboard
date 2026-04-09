@@ -8,9 +8,7 @@ export function AdminTeachers() {
   return <PlaceholderPage icon="📚" title="All Teachers" description="View and manage all teaching staff." />;
 }
 
-export function AdminTeacherAttendance() {
-  return <PlaceholderPage icon="✅" title="Teacher Attendance" description="Track and manage teacher attendance records." />;
-}
+export { default as AdminTeacherAttendance } from './AdminTeacherAttendance';
 
 export function AdminFeeIndividual() {
   return <PlaceholderPage icon="💰" title="Individual Fee" description="View and manage individual student fee details, discounts, and payments." />;

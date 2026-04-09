@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, Shield, BookOpen, GraduationCap, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLES, ROLE_CONFIG } from '../../constants';
@@ -19,7 +19,6 @@ export default function LoginPage() {
   const [localError, setLocalError] = useState('');
 
   const { login, loading, error: authError } = useAuth();
-  const navigate = useNavigate();
   const config = ROLE_CONFIG[activeRole];
 
   const handleSubmit = async (e) => {
@@ -32,8 +31,8 @@ export default function LoginPage() {
     }
 
     try {
-      const user = await login(activeRole, { userId: userId.trim(), password });
-      navigate(`/${user.role}`);
+      await login(activeRole, { userId: userId.trim(), password });
+      // App.jsx handles redirect: user ? <Navigate to={`/${user.role}`}> : <LoginPage />
     } catch (err) {
       // error is set in AuthContext
     }
@@ -111,13 +110,13 @@ export default function LoginPage() {
             {/* User ID */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                {config.label} ID
+                Email
               </label>
               <input
-                type="text"
+                type="email"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                placeholder={`Enter your ${activeRole} ID`}
+                placeholder="Enter your email"
                 className="w-full px-4 py-3 bg-surface-bg border border-gray-200 rounded-lg text-sm font-medium text-gray-900 placeholder:text-gray-300 outline-none transition-all focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10"
               />
             </div>
