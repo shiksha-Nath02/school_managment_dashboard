@@ -74,6 +74,7 @@ export const SIDEBAR_NAV = {
     {
       title: 'Actions',
       items: [
+        { key: 'my-attendance', label: 'My Attendance', icon: 'CalendarCheck', path: '/teacher/my-attendance' },
         { key: 'upload-attendance', label: 'Upload Attendance', icon: 'CheckCircle', path: '/teacher/upload-attendance' },
         { key: 'upload-marks', label: 'Upload Marks', icon: 'FileText', path: '/teacher/upload-marks' },
       ],
@@ -93,6 +94,7 @@ export const SIDEBAR_NAV = {
       title: 'Attendance',
       items: [
         { key: 'teacher-attendance', label: 'Teacher Attendance', icon: 'CheckCircle', path: '/admin/teacher-attendance' },
+        { key: 'teacher-attendance-report', label: 'Attendance Report', icon: 'BarChart2', path: '/admin/teacher-attendance-report' },
       ],
     },
     {

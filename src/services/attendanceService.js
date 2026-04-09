@@ -19,6 +19,18 @@ export const getAttendanceByDate = (classId, date) =>
   api.get(`/teacher/attendance/${classId}`, { params: { date } });
 
 // ========================
+// ADMIN - Teacher Attendance APIs
+// ========================
+
+export const getAdminAllTeachers = () => api.get('/admin/teachers');
+
+export const getAdminTeacherAttendance = (date) =>
+  api.get('/admin/teacher-attendance', { params: { date } });
+
+export const submitAdminTeacherAttendance = (data) =>
+  api.post('/admin/teacher-attendance', data);
+
+// ========================
 // STUDENT - Attendance APIs
 // ========================
 
