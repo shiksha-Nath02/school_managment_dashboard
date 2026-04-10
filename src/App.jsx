@@ -9,23 +9,25 @@ import LandingPage from './pages/public/LandingPage';
 
 // Student pages
 import StudentProfile from './pages/student/StudentProfile';
-import StudentAttendance from './pages/student/StudentAttendance';       // ← NEW file
+import StudentAttendance from './pages/student/StudentAttendance';
+import StudentTimetable from './pages/student/StudentTimetable';
+import StudentClassTasks from './pages/student/StudentClassTasks';
 import {
   StudentResults,
-  StudentTimetable,
   StudentFeeHistory,
   StudentPayFee,
-} from './pages/student/StudentPages';                                    // ← removed StudentAttendance from here
+} from './pages/student/StudentPages';
 
 // Teacher pages
 import TeacherProfile from './pages/teacher/TeacherProfile';
 import TeacherUploadAttendance from './pages/teacher/TeacherUploadAttendance';
 import TeacherMyAttendance from './pages/teacher/TeacherMyAttendance';
+import TeacherTimetable from './pages/teacher/TeacherTimetable';
+import TeacherClassTasks from './pages/teacher/TeacherClassTasks';
 import {
-  TeacherTimetable,
   TeacherClassData,
   TeacherUploadMarks,
-} from './pages/teacher/TeacherPages';                                    // ← removed TeacherUploadAttendance from here
+} from './pages/teacher/TeacherPages';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -67,6 +69,7 @@ export default function App() {
         <Route index element={<StudentProfile />} />
         <Route path="results" element={<StudentResults />} />
         <Route path="timetable" element={<StudentTimetable />} />
+        <Route path="class-tasks" element={<StudentClassTasks />} />
         <Route path="attendance" element={<StudentAttendance />} />
         <Route path="fee-history" element={<StudentFeeHistory />} />
         <Route path="pay-fee" element={<StudentPayFee />} />
@@ -83,6 +86,7 @@ export default function App() {
       >
         <Route index element={<TeacherProfile />} />
         <Route path="timetable" element={<TeacherTimetable />} />
+        <Route path="class-tasks" element={<TeacherClassTasks />} />
         <Route path="class-data" element={<TeacherClassData />} />
         <Route path="upload-attendance" element={<TeacherUploadAttendance />} />
         <Route path="my-attendance" element={<TeacherMyAttendance />} />
