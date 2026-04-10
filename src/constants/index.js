@@ -1,3 +1,24 @@
+// ===== TIMETABLE CONSTANTS =====
+export const SCHOOL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+export const PERIODS = [
+  { number: 1, startTime: '8:00 AM',  endTime: '8:40 AM'  },
+  { number: 2, startTime: '8:40 AM',  endTime: '9:20 AM'  },
+  { number: 3, startTime: '9:20 AM',  endTime: '10:00 AM' },
+  { number: 4, startTime: '10:20 AM', endTime: '11:00 AM' },
+  { number: 5, startTime: '11:00 AM', endTime: '11:40 AM' },
+  { number: 6, startTime: '11:40 AM', endTime: '12:20 PM' },
+  { number: 7, startTime: '1:00 PM',  endTime: '1:40 PM'  },
+  { number: 8, startTime: '1:40 PM',  endTime: '2:20 PM'  },
+];
+
+export const SUBJECTS = [
+  'Mathematics', 'English', 'Hindi', 'Science', 'Social Science',
+  'Physics', 'Chemistry', 'Biology', 'Computer Science',
+  'Physical Education', 'Art', 'Music', 'Library',
+  'Moral Science', 'General Knowledge', 'Sanskrit'
+];
+
 // ===== ROLE CONFIGURATION =====
 export const ROLES = {
   ADMIN: 'admin',
@@ -50,6 +71,7 @@ export const SIDEBAR_NAV = {
         { key: 'profile', label: 'My Profile', icon: 'User', path: '/student' },
         { key: 'results', label: 'My Results', icon: 'FileText', path: '/student/results' },
         { key: 'timetable', label: 'Timetable', icon: 'Calendar', path: '/student/timetable' },
+        { key: 'class-tasks', label: 'Classwork/Homework', icon: 'ClipboardList', path: '/student/class-tasks' },
         { key: 'attendance', label: 'Attendance', icon: 'CheckCircle', path: '/student/attendance' },
       ],
     },
@@ -68,6 +90,7 @@ export const SIDEBAR_NAV = {
       items: [
         { key: 'profile', label: 'My Profile', icon: 'User', path: '/teacher' },
         { key: 'timetable', label: 'Timetable', icon: 'Calendar', path: '/teacher/timetable' },
+        { key: 'class-tasks', label: 'Classwork/Homework', icon: 'ClipboardList', path: '/teacher/class-tasks' },
         { key: 'class-data', label: 'Class Data', icon: 'ClipboardList', path: '/teacher/class-data' },
       ],
     },
