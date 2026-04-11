@@ -124,6 +124,7 @@ export const SIDEBAR_NAV = {
       title: 'Finance',
       items: [
         { key: 'fee-individual', label: 'Individual Fee', icon: 'IndianRupee', path: '/admin/fee-individual' },
+        { key: 'fee-bulk', label: 'Bulk Payment', icon: 'Banknote', path: '/admin/fee-bulk' },
         { key: 'fee-dues', label: 'Students with Dues', icon: 'AlertTriangle', path: '/admin/fee-dues' },
         { key: 'fee-classwise', label: 'Class-wise Report', icon: 'ClipboardList', path: '/admin/fee-classwise' },
         { key: 'salary', label: 'Salary', icon: 'Banknote', path: '/admin/salary' },
@@ -142,6 +143,7 @@ export const SIDEBAR_NAV = {
     {
       title: 'Manage',
       items: [
+        { key: 'session', label: 'Session Setup', icon: 'Settings2', path: '/admin/session' },
         { key: 'add-student', label: 'Add Student', icon: 'UserPlus', path: '/admin/add-student' },
         { key: 'add-teacher', label: 'Add Teacher', icon: 'UserPlus', path: '/admin/add-teacher' },
         { key: 'remove-student', label: 'Remove Student', icon: 'UserMinus', path: '/admin/remove-student' },

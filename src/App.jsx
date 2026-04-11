@@ -38,6 +38,7 @@ import {
   AdminFeeIndividual,
   AdminFeeDues,
   AdminFeeClasswise,
+  AdminSessionSetup,
   AdminSalary,
   AdminProfit,
   AdminUniform,
@@ -49,6 +50,7 @@ import {
 } from './pages/admin/AdminPages';
 import AdminAddStudent from './pages/admin/AdminAddStudent';
 import AdminTeacherAttendanceReport from './pages/admin/AdminTeacherAttendanceReport';
+import AdminFeeBulk from './pages/admin/AdminFeeBulk';
 
 export default function App() {
   return (
@@ -108,6 +110,7 @@ export default function App() {
         <Route path="teacher-attendance" element={<AdminTeacherAttendance />} />
         <Route path="teacher-attendance-report" element={<AdminTeacherAttendanceReport />} />
         <Route path="fee-individual" element={<AdminFeeIndividual />} />
+        <Route path="fee-bulk" element={<AdminFeeBulk />} />
         <Route path="fee-dues" element={<AdminFeeDues />} />
         <Route path="fee-classwise" element={<AdminFeeClasswise />} />
         <Route path="salary" element={<AdminSalary />} />
@@ -119,6 +122,7 @@ export default function App() {
         <Route path="add-student" element={<AdminAddStudent />} />
         <Route path="add-teacher" element={<AdminAddTeacher />} />
         <Route path="remove-student" element={<AdminRemoveStudent />} />
+        <Route path="session" element={<AdminSessionSetup />} />
       </Route>
 
       {/* ===== CATCH ALL ===== */}
