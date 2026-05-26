@@ -1,3 +1,25 @@
+// ===== MARKS / EXAM CONSTANTS =====
+export const EXAM_TYPES = [
+  { value: 'class_test', label: 'Class Test' },
+  { value: 'ut1', label: 'Unit Test 1' },
+  { value: 'ut2', label: 'Unit Test 2' },
+  { value: 'ut3', label: 'Unit Test 3' },
+  { value: 'ut4', label: 'Unit Test 4' },
+  { value: 'midterm', label: 'Midterm' },
+  { value: 'final', label: 'Final Exam' },
+];
+
+export const GRADE_COLORS = {
+  'A+': 'text-green-700 bg-green-50 border-green-200',
+  'A':  'text-green-600 bg-green-50 border-green-200',
+  'B+': 'text-blue-600 bg-blue-50 border-blue-200',
+  'B':  'text-blue-500 bg-blue-50 border-blue-200',
+  'C':  'text-amber-600 bg-amber-50 border-amber-200',
+  'D':  'text-orange-600 bg-orange-50 border-orange-200',
+  'F':  'text-red-600 bg-red-50 border-red-200',
+  'AB': 'text-gray-500 bg-gray-50 border-gray-200',
+};
+
 // ===== TIMETABLE CONSTANTS =====
 export const SCHOOL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -89,9 +111,9 @@ export const SIDEBAR_NAV = {
       title: 'Main',
       items: [
         { key: 'profile', label: 'My Profile', icon: 'User', path: '/teacher' },
+        { key: 'students', label: 'My Students', icon: 'GraduationCap', path: '/teacher/students' },
         { key: 'timetable', label: 'Timetable', icon: 'Calendar', path: '/teacher/timetable' },
         { key: 'class-tasks', label: 'Classwork/Homework', icon: 'ClipboardList', path: '/teacher/class-tasks' },
-        { key: 'class-data', label: 'Class Data', icon: 'ClipboardList', path: '/teacher/class-data' },
       ],
     },
     {

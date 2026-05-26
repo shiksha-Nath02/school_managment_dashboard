@@ -12,6 +12,4 @@ export function TeacherUploadAttendance() {
   return <PlaceholderPage icon="✅" title="Upload Attendance" description="Mark and upload daily attendance for your classes." />;
 }
 
-export function TeacherUploadMarks() {
-  return <PlaceholderPage icon="📝" title="Upload Marks" description="Enter and submit exam marks for your students." />;
-}
+export { default as TeacherUploadMarks } from './TeacherUploadMarks';

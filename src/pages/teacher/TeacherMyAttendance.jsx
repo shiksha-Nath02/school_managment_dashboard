@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Clock, CheckCircle2, AlertCircle, Loader2, CalendarDays } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, Loader2, CalendarDays, LogIn, LogOut, ShieldCheck, LockKeyhole } from 'lucide-react';
 import svc from '@/services/teacherAttendanceService';
+import CameraCapture from '@/components/common/CameraCapture';
 
 const STATUS_CONFIG = {
   present:       { label: 'Present',      cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
@@ -33,11 +34,50 @@ export default function TeacherMyAttendance() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [clock, setClock] = useState(new Date());
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraMode, setCameraMode] = useState(null); // 'checkin' | 'checkout'
+  const [actionLoading, setActionLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [selfEnabled, setSelfEnabled] = useState(false);
+
+  const showToast = (type, msg) => {
+    setToast({ type, msg });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const openCamera = (mode) => { setCameraMode(mode); setCameraOpen(true); };
+
+  const handleCapture = async (dataUrl) => {
+    setActionLoading(true);
+    try {
+      if (cameraMode === 'checkin') {
+        await svc.selfCheckIn(dataUrl);
+        showToast('success', 'Checked in! Waiting for admin verification.');
+      } else {
+        await svc.selfCheckOut(dataUrl);
+        showToast('success', 'Checked out! Waiting for admin verification.');
+      }
+      // Refresh today's record
+      const fresh = await svc.getMyAttendance(selectedMonth, selectedYear);
+      setData(fresh);
+    } catch (err) {
+      showToast('error', err.response?.data?.message || 'Action failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   // Live clock
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    // Fetch self-attendance setting once on mount
+    svc.getSelfAttendanceSetting()
+      .then((d) => setSelfEnabled(d.enabled || false))
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -64,6 +104,22 @@ export default function TeacherMyAttendance() {
 
   return (
     <div className="space-y-6 animate-fade-up animate-start">
+      <CameraCapture
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={handleCapture}
+        title={cameraMode === 'checkin' ? 'Check-In Photo' : 'Check-Out Photo'}
+        hint="Your photo will be sent to admin for verification"
+      />
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg text-white text-sm font-medium ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-500'}`}>
+          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+          {toast.msg}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
@@ -84,48 +140,111 @@ export default function TeacherMyAttendance() {
           <div className="flex justify-center py-6">
             <Loader2 className="w-6 h-6 text-teacher-500 animate-spin" />
           </div>
-        ) : !today ? (
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 border border-dashed border-gray-200">
-            <AlertCircle className="w-5 h-5 text-gray-300 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-gray-500">Not yet marked</p>
-              <p className="text-xs text-gray-400">Your attendance for today hasn't been recorded yet</p>
-            </div>
-          </div>
         ) : (
           <div className="space-y-4">
-            {/* Status */}
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${STATUS_CONFIG[today.status]?.cls || 'bg-gray-100 text-gray-600'}`}>
-                {STATUS_CONFIG[today.status]?.label || today.status}
-              </span>
-              {today.leaveType && (
-                <span className="text-xs text-gray-400">({LEAVE_LABELS[today.leaveType] || today.leaveType})</span>
-              )}
-            </div>
+            {/* Status + verification badge */}
+            {today ? (
+              <div className="flex items-center gap-3 flex-wrap">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${STATUS_CONFIG[today.status]?.cls || 'bg-gray-100 text-gray-600'}`}>
+                  {STATUS_CONFIG[today.status]?.label || today.status}
+                </span>
+                {today.leaveType && (
+                  <span className="text-xs text-gray-400">({LEAVE_LABELS[today.leaveType] || today.leaveType})</span>
+                )}
+                {today.isVerified ? (
+                  <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                    <ShieldCheck className="w-3 h-3" /> Verified
+                  </span>
+                ) : (
+                  <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full font-semibold">Pending verification</span>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 border border-dashed border-gray-200">
+                <AlertCircle className="w-5 h-5 text-gray-300 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-gray-500">Not yet marked</p>
+                  <p className="text-xs text-gray-400">Click Check In below to record your attendance</p>
+                </div>
+              </div>
+            )}
 
-            {/* Times */}
+            {/* Times + photos */}
             <div className="grid grid-cols-2 gap-4">
-              <div className={`rounded-xl px-4 py-3 ${today.checkInTime ? 'bg-emerald-50' : 'bg-gray-50'}`}>
+              <div className={`rounded-xl px-4 py-3 ${today?.checkInTime ? 'bg-emerald-50' : 'bg-gray-50'}`}>
                 <p className="text-xs font-medium text-gray-400 mb-1">Check In</p>
-                {today.checkInTime ? (
-                  <p className="text-xl font-bold font-mono text-emerald-700">{formatTime(today.checkInTime)}</p>
+                {today?.checkInTime ? (
+                  <>
+                    <p className="text-xl font-bold font-mono text-emerald-700">{formatTime(today.checkInTime)}</p>
+                    {today.checkInImage && (
+                      <img
+                        src={`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}/${today.checkInImage}`}
+                        alt="Check-in"
+                        className="mt-2 w-full h-20 object-cover rounded-lg"
+                      />
+                    )}
+                  </>
                 ) : (
                   <p className="text-sm text-gray-300">—</p>
                 )}
               </div>
-              <div className={`rounded-xl px-4 py-3 ${today.checkOutTime ? 'bg-amber-50' : 'bg-gray-50'}`}>
+              <div className={`rounded-xl px-4 py-3 ${today?.checkOutTime ? 'bg-amber-50' : 'bg-gray-50'}`}>
                 <p className="text-xs font-medium text-gray-400 mb-1">Check Out</p>
-                {today.checkOutTime ? (
-                  <p className="text-xl font-bold font-mono text-amber-700">{formatTime(today.checkOutTime)}</p>
+                {today?.checkOutTime ? (
+                  <>
+                    <p className="text-xl font-bold font-mono text-amber-700">{formatTime(today.checkOutTime)}</p>
+                    {today.checkOutImage && (
+                      <img
+                        src={`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}/${today.checkOutImage}`}
+                        alt="Check-out"
+                        className="mt-2 w-full h-20 object-cover rounded-lg"
+                      />
+                    )}
+                  </>
                 ) : (
                   <p className="text-sm text-gray-300">—</p>
                 )}
               </div>
             </div>
 
-            {today.remarks && (
+            {/* Check-in / Check-out buttons — only when self-attendance is enabled by admin */}
+            {selfEnabled ? (
+              <div className="flex gap-3 pt-1">
+                {!today?.checkInTime && (
+                  <button
+                    onClick={() => openCamera('checkin')}
+                    disabled={actionLoading}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 transition-all disabled:opacity-50"
+                  >
+                    {actionLoading && cameraMode === 'checkin' ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+                    Check In
+                  </button>
+                )}
+                {today?.checkInTime && !today?.checkOutTime && (
+                  <button
+                    onClick={() => openCamera('checkout')}
+                    disabled={actionLoading}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600 transition-all disabled:opacity-50"
+                  >
+                    {actionLoading && cameraMode === 'checkout' ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                    Check Out
+                  </button>
+                )}
+                {today?.checkOutTime && (
+                  <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Attendance submitted for today
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <LockKeyhole className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <p className="text-xs text-gray-500">Attendance is managed by admin today</p>
+              </div>
+            )}
+
+            {today?.remarks && (
               <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
                 <span className="font-semibold">Remark:</span> {today.remarks}
               </p>

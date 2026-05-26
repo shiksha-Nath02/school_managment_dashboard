@@ -6,6 +6,7 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 
 // Public pages
 import LandingPage from './pages/public/LandingPage';
+import LoginPage from './pages/auth/LoginPage';
 
 // Student pages
 import StudentProfile from './pages/student/StudentProfile';
@@ -24,10 +25,8 @@ import TeacherUploadAttendance from './pages/teacher/TeacherUploadAttendance';
 import TeacherMyAttendance from './pages/teacher/TeacherMyAttendance';
 import TeacherTimetable from './pages/teacher/TeacherTimetable';
 import TeacherClassTasks from './pages/teacher/TeacherClassTasks';
-import {
-  TeacherClassData,
-  TeacherUploadMarks,
-} from './pages/teacher/TeacherPages';
+import { TeacherUploadMarks } from './pages/teacher/TeacherPages';
+import TeacherStudents from './pages/teacher/TeacherStudents';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -51,13 +50,17 @@ import {
 import AdminAddStudent from './pages/admin/AdminAddStudent';
 import AdminTeacherAttendanceReport from './pages/admin/AdminTeacherAttendanceReport';
 import AdminFeeBulk from './pages/admin/AdminFeeBulk';
+import AdminStudentsPage from './pages/admin/AdminStudents';
+import AdminTeachersPage from './pages/admin/AdminTeachers';
+import AdminAddTeacherPage from './pages/admin/AdminAddTeacher';
+import AdminRemoveStudentPage from './pages/admin/AdminRemoveStudent';
 
 export default function App() {
   return (
     <Routes>
       {/* ===== PUBLIC ===== */}
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<Navigate to="/admin" replace />} />
+      <Route path="/login" element={<LoginPage />} />
 
       {/* ===== STUDENT DASHBOARD ===== */}
       <Route
@@ -89,10 +92,10 @@ export default function App() {
         <Route index element={<TeacherProfile />} />
         <Route path="timetable" element={<TeacherTimetable />} />
         <Route path="class-tasks" element={<TeacherClassTasks />} />
-        <Route path="class-data" element={<TeacherClassData />} />
         <Route path="upload-attendance" element={<TeacherUploadAttendance />} />
         <Route path="my-attendance" element={<TeacherMyAttendance />} />
         <Route path="upload-marks" element={<TeacherUploadMarks />} />
+        <Route path="students" element={<TeacherStudents />} />
       </Route>
 
       {/* ===== ADMIN DASHBOARD ===== */}
@@ -105,8 +108,8 @@ export default function App() {
         }
       >
         <Route index element={<AdminDashboard />} />
-        <Route path="students" element={<AdminStudents />} />
-        <Route path="teachers" element={<AdminTeachers />} />
+        <Route path="students" element={<AdminStudentsPage />} />
+        <Route path="teachers" element={<AdminTeachersPage />} />
         <Route path="teacher-attendance" element={<AdminTeacherAttendance />} />
         <Route path="teacher-attendance-report" element={<AdminTeacherAttendanceReport />} />
         <Route path="fee-individual" element={<AdminFeeIndividual />} />
@@ -120,8 +123,8 @@ export default function App() {
         <Route path="stationery" element={<AdminStationery />} />
         <Route path="pantry" element={<AdminPantry />} />
         <Route path="add-student" element={<AdminAddStudent />} />
-        <Route path="add-teacher" element={<AdminAddTeacher />} />
-        <Route path="remove-student" element={<AdminRemoveStudent />} />
+        <Route path="add-teacher" element={<AdminAddTeacherPage />} />
+        <Route path="remove-student" element={<AdminRemoveStudentPage />} />
         <Route path="session" element={<AdminSessionSetup />} />
       </Route>
 

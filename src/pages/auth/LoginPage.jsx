@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, Shield, BookOpen, GraduationCap, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLES, ROLE_CONFIG } from '../../constants';
@@ -12,6 +12,7 @@ const ROLE_TABS = [
 ];
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const [activeRole, setActiveRole] = useState(ROLES.ADMIN);
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
@@ -31,8 +32,8 @@ export default function LoginPage() {
     }
 
     try {
-      await login(activeRole, { userId: userId.trim(), password });
-      // App.jsx handles redirect: user ? <Navigate to={`/${user.role}`}> : <LoginPage />
+      const user = await login(activeRole, { userId: userId.trim(), password });
+      navigate(`/${user.role}`, { replace: true });
     } catch (err) {
       // error is set in AuthContext
     }
