@@ -12,9 +12,13 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 md:px-12 py-4">
         {/* Brand */}
         <a href="#home" className="flex items-center gap-2.5 no-underline">
-          <div className="w-9 h-9 bg-brand-500 rounded-[10px] flex items-center justify-center text-white font-bold">
-            {site.logoLetter}
-          </div>
+          {site.logo ? (
+            <img src={site.logo} alt={site.name} className="w-9 h-9 rounded-[10px] object-cover" />
+          ) : (
+            <div className="w-9 h-9 bg-brand-500 rounded-[10px] flex items-center justify-center text-white font-bold">
+              {site.logoLetter}
+            </div>
+          )}
           <span className="font-display font-extrabold text-lg md:text-xl text-gray-900 tracking-tight">
             {site.name}
           </span>

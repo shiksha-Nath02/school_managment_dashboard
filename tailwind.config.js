@@ -4,17 +4,19 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Per-school themeable via CSS variables (see src/theme/applyTheme.js).
+        // Variables hold space-separated RGB channels so opacity modifiers work.
         brand: {
-          50: '#F0F7EF',
-          100: '#D9EBDA',
-          200: '#B3D7B5',
-          300: '#7BBF80',
-          400: '#4A9E52',
-          500: '#2D5A27',
-          600: '#244B20',
-          700: '#1B3918',
-          800: '#122610',
-          900: '#091308',
+          50: 'rgb(var(--brand-50) / <alpha-value>)',
+          100: 'rgb(var(--brand-100) / <alpha-value>)',
+          200: 'rgb(var(--brand-200) / <alpha-value>)',
+          300: 'rgb(var(--brand-300) / <alpha-value>)',
+          400: 'rgb(var(--brand-400) / <alpha-value>)',
+          500: 'rgb(var(--brand-500) / <alpha-value>)',
+          600: 'rgb(var(--brand-600) / <alpha-value>)',
+          700: 'rgb(var(--brand-700) / <alpha-value>)',
+          800: 'rgb(var(--brand-800) / <alpha-value>)',
+          900: 'rgb(var(--brand-900) / <alpha-value>)',
         },
         teacher: {
           50: '#F5F0FB',
@@ -46,8 +48,8 @@ export default {
           bg: '#FAFAF8',
         },
         gold: {
-          DEFAULT: '#C4932A',
-          light: '#FDF6E3',
+          DEFAULT: 'rgb(var(--gold) / <alpha-value>)',
+          light: 'rgb(var(--gold-light) / <alpha-value>)',
         },
       },
       fontFamily: {

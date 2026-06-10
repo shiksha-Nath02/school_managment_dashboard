@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== THEME COLOR VARIABLES (defaults: green) ===== */
+/* applyTheme() overrides these per school at startup. Space-separated RGB
+   channels so Tailwind opacity modifiers (e.g. bg-brand-500/60) work. */
+:root {
+  --brand-50: 240 247 239;
+  --brand-100: 217 235 218;
+  --brand-200: 179 215 181;
+  --brand-300: 123 191 128;
+  --brand-400: 74 158 82;
+  --brand-500: 45 90 39;
+  --brand-600: 36 75 32;
+  --brand-700: 27 57 24;
+  --brand-800: 18 38 16;
+  --brand-900: 9 19 8;
+  --gold: 196 147 42;
+  --gold-light: 253 246 227;
+}
+
 /* ===== BASE RESETS ===== */
 @layer base {
   * {
