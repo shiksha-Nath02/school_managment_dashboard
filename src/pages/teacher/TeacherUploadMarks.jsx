@@ -1,16 +1,179 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getAllClasses } from '@/services/timetableService';
 import { getSubjectsForClass, getExamTypes, getMarksForClass, saveMarks } from '@/services/marksService';
 import { EXAM_TYPES, SUBJECTS } from '@/constants';
-import { ClipboardCheck, Save, Loader2, ToggleLeft, ToggleRight, History, PenLine } from 'lucide-react';
+import { ClipboardCheck, Save, Loader2, History, PenLine, ChevronDown, Check, Plus, X } from 'lucide-react';
+
+// ── Single subject combobox: dropdown list + free-text input ─────────────────
+function SubjectCombobox({ subjects, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value || '');
+  const ref = useRef(null);
+
+  useEffect(() => { setQuery(value || ''); }, [value]);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = subjects.filter((s) => s.toLowerCase().includes(query.toLowerCase()));
+  const isCustom = query.trim() && !subjects.map(s => s.toLowerCase()).includes(query.trim().toLowerCase());
+
+  const select = (subj) => { onChange(subj); setQuery(subj); setOpen(false); };
+  const commit = () => { if (query.trim()) { onChange(query.trim()); setOpen(false); } };
+
+  return (
+    <div ref={ref} className="relative">
+      <input
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false); }}
+        placeholder="Type or pick a subject…"
+        className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-dm-sans focus:ring-2 focus:ring-[#5B3A8C]/20 focus:border-[#5B3A8C] w-48 outline-none"
+      />
+      {open && (filtered.length > 0 || isCustom) && (
+        <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-lg w-56">
+          <ul className="max-h-52 overflow-y-auto py-1">
+            {isCustom && (
+              <li>
+                <button type="button" onClick={commit}
+                  className="flex items-center gap-2 w-full px-4 py-1.5 text-sm text-left hover:bg-[#F0EBF7] text-[#5B3A8C] font-medium">
+                  <Plus className="w-3.5 h-3.5" /> Use &ldquo;{query.trim()}&rdquo;
+                </button>
+              </li>
+            )}
+            {filtered.map((subj) => (
+              <li key={subj}>
+                <button type="button" onClick={() => select(subj)}
+                  className={`flex items-center gap-2 w-full px-4 py-1.5 text-sm text-left hover:bg-[#F0EBF7] transition-colors ${subj === value ? 'font-semibold text-[#5B3A8C]' : 'text-gray-700'}`}>
+                  {subj === value && <Check className="w-3.5 h-3.5 text-[#5B3A8C] shrink-0" />}
+                  {subj !== value && <span className="w-3.5 shrink-0" />}
+                  {subj}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Multi-select subject picker with search + custom input ────────────────────
+function SubjectMultiSelect({ subjects, selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = subjects.filter((s) => s.toLowerCase().includes(query.toLowerCase()));
+  const canAdd = query.trim() && !subjects.map(s => s.toLowerCase()).includes(query.trim().toLowerCase());
+
+  const toggle = (subj) => {
+    onChange(selected.includes(subj) ? selected.filter((s) => s !== subj) : [...selected, subj]);
+  };
+
+  const addCustom = () => {
+    const val = query.trim();
+    if (!val) return;
+    if (!selected.includes(val)) onChange([...selected, val]);
+    setQuery('');
+  };
+
+  const label = selected.length === 0
+    ? 'Select subjects…'
+    : selected.length === subjects.length
+    ? 'All subjects'
+    : selected.join(', ');
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-dm-sans bg-white hover:bg-gray-50 min-w-[180px] max-w-[280px]"
+      >
+        <span className="flex-1 text-left truncate text-gray-700">{label}</span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-lg w-64">
+          {/* Search / add input */}
+          <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-100">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') addCustom(); }}
+              placeholder="Search or add subject…"
+              className="flex-1 text-sm outline-none text-gray-800 placeholder-gray-400"
+            />
+            {canAdd && (
+              <button
+                onClick={addCustom}
+                title={`Add "${query.trim()}"`}
+                className="flex items-center gap-0.5 text-xs text-[#5B3A8C] font-semibold hover:underline shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
+            )}
+          </div>
+
+          {/* Subject list */}
+          <ul className="max-h-52 overflow-y-auto py-1">
+            {filtered.length === 0 && !canAdd && (
+              <li className="px-4 py-2 text-xs text-gray-400">No subjects found</li>
+            )}
+            {filtered.map((subj) => (
+              <li key={subj}>
+                <button
+                  type="button"
+                  onClick={() => toggle(subj)}
+                  className="flex items-center gap-2.5 w-full px-4 py-1.5 text-sm text-left hover:bg-[#F0EBF7] transition-colors"
+                >
+                  <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${selected.includes(subj) ? 'bg-[#5B3A8C] border-[#5B3A8C]' : 'border-gray-300'}`}>
+                    {selected.includes(subj) && <Check className="w-3 h-3 text-white" />}
+                  </span>
+                  <span className={selected.includes(subj) ? 'font-medium text-[#5B3A8C]' : 'text-gray-700'}>{subj}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {/* Footer: show selected pills + clear */}
+          {selected.length > 0 && (
+            <div className="border-t border-gray-100 px-3 py-2 flex flex-wrap gap-1">
+              {selected.map((s) => (
+                <span key={s} className="flex items-center gap-1 bg-[#F0EBF7] text-[#5B3A8C] text-xs px-2 py-0.5 rounded-full font-medium">
+                  {s}
+                  <button onClick={() => toggle(s)} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const TeacherUploadMarks = () => {
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [examType, setExamType] = useState('ut1');
   const [subjects, setSubjects] = useState([]);
-  const [selectedSubject, setSelectedSubject] = useState('');
-  const [mode, setMode] = useState('single'); // 'single' | 'all'
+  const [singleSubject, setSingleSubject] = useState('');   // for 'single' mode
+  const [selectedSubjects, setSelectedSubjects] = useState([]); // for 'multi' mode
+  const [mode, setMode] = useState('single'); // 'single' | 'multi'
   const [maxMarks, setMaxMarks] = useState({});
   const [students, setStudents] = useState([]);
   const [marksData, setMarksData] = useState({});
@@ -45,11 +208,13 @@ const TeacherUploadMarks = () => {
         const subjs = res.data.subjects || [];
         const finalSubjs = subjs.length > 0 ? subjs : SUBJECTS;
         setSubjects(finalSubjs);
-        if (finalSubjs.length > 0) setSelectedSubject(finalSubjs[0]);
+        setSingleSubject(finalSubjs[0] || '');
+        setSelectedSubjects(finalSubjs);
       } catch (err) {
         console.error(err);
         setSubjects(SUBJECTS);
-        setSelectedSubject(SUBJECTS[0]);
+        setSingleSubject(SUBJECTS[0] || '');
+        setSelectedSubjects(SUBJECTS);
       }
     };
     fetchSubjects();
@@ -70,30 +235,32 @@ const TeacherUploadMarks = () => {
     fetchHistory();
   }, [selectedClass]);
 
-  // Fetch existing marks when class + exam + subject/mode changes, or after save (refreshKey)
+  // Fetch existing marks when class + exam + subjects/mode changes, or after save (refreshKey)
   useEffect(() => {
     if (!selectedClass || !examType) return;
-    if (mode === 'single' && !selectedSubject) return;
+    if (mode === 'single' && !singleSubject) return;
+    if (mode === 'multi' && selectedSubjects.length === 0) return;
 
     const fetchMarks = async () => {
       setLoading(true);
       try {
-        const subject = mode === 'single' ? selectedSubject : null;
-        const res = await getMarksForClass(selectedClass, examType, subject);
+        const res = await getMarksForClass(selectedClass, examType, null);
         const data = res.data;
 
         setStudents(data.students || []);
         setIsUpdate(data.isUpdate || false);
 
+        const activeSubjs = mode === 'single'
+          ? [singleSubject]
+          : mode === 'multi'
+          ? selectedSubjects
+          : (data.subjects?.length > 0 ? data.subjects : subjects);
         const md = {};
         const mm = { ...maxMarks };
-        const subjs = mode === 'single'
-          ? [selectedSubject]
-          : (data.subjects?.length > 0 ? data.subjects : subjects);
 
         (data.students || []).forEach(s => {
           md[s.student_id] = {};
-          subjs.forEach(subj => {
+          activeSubjs.forEach(subj => {
             const existing = s.marks?.[subj];
             md[s.student_id][subj] = {
               marks_obtained: existing?.marks_obtained ?? '',
@@ -117,7 +284,7 @@ const TeacherUploadMarks = () => {
       setLoading(false);
     };
     fetchMarks();
-  }, [selectedClass, examType, selectedSubject, mode, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedClass, examType, singleSubject, selectedSubjects, mode, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMarkChange = (studentId, subject, field, value) => {
     setMarksData(prev => ({
@@ -142,7 +309,7 @@ const TeacherUploadMarks = () => {
   };
 
   const handleSave = async () => {
-    const subjs = mode === 'single' ? [selectedSubject] : subjects;
+    const subjs = mode === 'single' ? [singleSubject] : selectedSubjects;
     const entries = [];
 
     Object.entries(marksData).forEach(([studentId, subjMap]) => {
@@ -189,17 +356,17 @@ const TeacherUploadMarks = () => {
   const handleHistoryClick = (histExamType, histSubject) => {
     setExamType(histExamType);
     setMode('single');
-    setSelectedSubject(histSubject);
-    // The marks useEffect will trigger automatically
+    setSingleSubject(histSubject);
   };
 
-  const activeSubjects = mode === 'single' ? [selectedSubject] : subjects;
+  const activeSubjects = mode === 'single' ? [singleSubject] : selectedSubjects;
 
   const presentCount = Object.values(marksData).reduce((count, subjMap) => {
     const subj = activeSubjects[0];
     if (subj && subjMap[subj] && !subjMap[subj].is_absent) count++;
     return count;
   }, 0);
+
   const absentCount = students.length - presentCount;
 
   const selectedClassName = classes.find(c => c.id === parseInt(selectedClass));
@@ -264,28 +431,35 @@ const TeacherUploadMarks = () => {
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1 font-dm-sans">Mode</label>
           <button
-            onClick={() => setMode(prev => prev === 'single' ? 'all' : 'single')}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-dm-sans hover:bg-gray-50"
+            type="button"
+            onClick={() => setMode(m => m === 'single' ? 'multi' : 'single')}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-dm-sans hover:bg-gray-50 bg-white"
           >
-            {mode === 'single'
-              ? <ToggleLeft className="w-5 h-5 text-gray-400" />
-              : <ToggleRight className="w-5 h-5 text-[#5B3A8C]" />}
-            {mode === 'single' ? 'Single Subject' : 'All Subjects'}
+            <span className={`w-8 h-4 rounded-full flex items-center transition-colors ${mode === 'multi' ? 'bg-[#5B3A8C] justify-end' : 'bg-gray-300 justify-start'}`}>
+              <span className="w-3 h-3 bg-white rounded-full mx-0.5 shadow-sm" />
+            </span>
+            {mode === 'single' ? 'Single Subject' : 'Multi Subject'}
           </button>
         </div>
 
-        {mode === 'single' && (
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1 font-dm-sans">Subject</label>
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-dm-sans focus:ring-2 focus:ring-[#5B3A8C]/20 focus:border-[#5B3A8C]"
-            >
-              {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-        )}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1 font-dm-sans">
+            {mode === 'single' ? 'Subject' : 'Subjects'}
+          </label>
+          {mode === 'single' ? (
+            <SubjectCombobox
+              subjects={subjects}
+              value={singleSubject}
+              onChange={setSingleSubject}
+            />
+          ) : (
+            <SubjectMultiSelect
+              subjects={subjects}
+              selected={selectedSubjects}
+              onChange={setSelectedSubjects}
+            />
+          )}
+        </div>
       </div>
 
       {/* Max marks inputs */}
@@ -328,7 +502,7 @@ const TeacherUploadMarks = () => {
           <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...
         </div>
       ) : mode === 'single' ? (
-        /* ── SINGLE SUBJECT MODE ── */
+        /* ── SINGLE SUBJECT — vertical layout with remark column ── */
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <table className="w-full">
             <thead className="bg-[#F0EBF7]">
@@ -342,43 +516,29 @@ const TeacherUploadMarks = () => {
             </thead>
             <tbody>
               {students.map((student, i) => {
-                const data = marksData[student.student_id]?.[selectedSubject] || {};
+                const subj = singleSubject;
+                const data = marksData[student.student_id]?.[subj] || {};
                 return (
-                  <tr
-                    key={student.student_id}
-                    className={`border-t border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}
-                  >
+                  <tr key={student.student_id} className={`border-t border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                     <td className="px-4 py-2.5 text-sm text-gray-500 font-dm-sans">{student.roll_number}</td>
                     <td className="px-4 py-2.5 text-sm font-medium text-gray-800 font-dm-sans">{student.name}</td>
                     <td className="px-4 py-2.5 text-center">
-                      <input
-                        type="number"
+                      <input type="number"
                         value={data.is_absent ? '' : (data.marks_obtained ?? '')}
-                        onChange={(e) => handleMarkChange(student.student_id, selectedSubject, 'marks_obtained', e.target.value)}
-                        disabled={data.is_absent}
-                        max={maxMarks[selectedSubject] || 100}
-                        min={0}
-                        placeholder="0"
-                        className={`w-20 px-2 py-1.5 border rounded-lg text-sm text-center font-dm-sans focus:ring-2 focus:ring-[#5B3A8C]/20 ${
-                          data.is_absent
-                            ? 'bg-gray-100 text-gray-400 border-gray-200'
-                            : 'border-gray-200'
-                        }`}
+                        onChange={(e) => handleMarkChange(student.student_id, subj, 'marks_obtained', e.target.value)}
+                        disabled={data.is_absent} max={maxMarks[subj] || 100} min={0} placeholder="0"
+                        className={`w-20 px-2 py-1.5 border rounded-lg text-sm text-center font-dm-sans focus:ring-2 focus:ring-[#5B3A8C]/20 ${data.is_absent ? 'bg-gray-100 text-gray-400 border-gray-200' : 'border-gray-200'}`}
                       />
                     </td>
                     <td className="px-4 py-2.5 text-center">
-                      <input
-                        type="checkbox"
-                        checked={data.is_absent || false}
-                        onChange={(e) => handleMarkChange(student.student_id, selectedSubject, 'is_absent', e.target.checked)}
+                      <input type="checkbox" checked={data.is_absent || false}
+                        onChange={(e) => handleMarkChange(student.student_id, subj, 'is_absent', e.target.checked)}
                         className="w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-400"
                       />
                     </td>
                     <td className="px-4 py-2.5">
-                      <input
-                        type="text"
-                        value={data.remark || ''}
-                        onChange={(e) => handleMarkChange(student.student_id, selectedSubject, 'remark', e.target.value)}
+                      <input type="text" value={data.remark || ''}
+                        onChange={(e) => handleMarkChange(student.student_id, subj, 'remark', e.target.value)}
                         placeholder="Optional remark"
                         className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm font-dm-sans focus:ring-1 focus:ring-[#5B3A8C]/20"
                       />
@@ -390,7 +550,7 @@ const TeacherUploadMarks = () => {
           </table>
         </div>
       ) : (
-        /* ── ALL SUBJECTS MODE ── */
+        /* ── MULTI-SUBJECT TABLE (all or multiple selected) ── */
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -398,7 +558,7 @@ const TeacherUploadMarks = () => {
                 <tr>
                   <th className="px-3 py-3 text-left text-xs font-semibold text-[#5B3A8C] uppercase font-outfit w-10 sticky left-0 bg-[#F0EBF7]">Roll</th>
                   <th className="px-3 py-3 text-left text-xs font-semibold text-[#5B3A8C] uppercase font-outfit w-36 sticky left-10 bg-[#F0EBF7]">Student</th>
-                  {subjects.map(subj => (
+                  {activeSubjects.map(subj => (
                     <th key={subj} className="px-2 py-3 text-center text-xs font-semibold text-[#5B3A8C] uppercase font-outfit min-w-[110px]">
                       {subj}
                     </th>
@@ -407,37 +567,23 @@ const TeacherUploadMarks = () => {
               </thead>
               <tbody>
                 {students.map((student, i) => (
-                  <tr
-                    key={student.student_id}
-                    className={`border-t border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}
-                  >
+                  <tr key={student.student_id} className={`border-t border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                     <td className="px-3 py-2 text-sm text-gray-500 font-dm-sans sticky left-0 bg-inherit">{student.roll_number}</td>
                     <td className="px-3 py-2 text-sm font-medium text-gray-800 font-dm-sans sticky left-10 bg-inherit">{student.name}</td>
-                    {subjects.map(subj => {
+                    {activeSubjects.map(subj => {
                       const data = marksData[student.student_id]?.[subj] || {};
                       return (
                         <td key={subj} className="px-2 py-2 text-center">
                           <div className="flex items-center justify-center gap-1">
-                            <input
-                              type="number"
+                            <input type="number"
                               value={data.is_absent ? '' : (data.marks_obtained ?? '')}
                               onChange={(e) => handleMarkChange(student.student_id, subj, 'marks_obtained', e.target.value)}
-                              disabled={data.is_absent}
-                              max={maxMarks[subj] || 100}
-                              min={0}
-                              placeholder="0"
-                              className={`w-16 px-1 py-1 border rounded text-sm text-center font-dm-sans ${
-                                data.is_absent
-                                  ? 'bg-gray-100 text-gray-400 border-gray-200'
-                                  : 'border-gray-200 focus:ring-1 focus:ring-[#5B3A8C]/20'
-                              }`}
+                              disabled={data.is_absent} max={maxMarks[subj] || 100} min={0} placeholder="0"
+                              className={`w-16 px-1 py-1 border rounded text-sm text-center font-dm-sans ${data.is_absent ? 'bg-gray-100 text-gray-400 border-gray-200' : 'border-gray-200 focus:ring-1 focus:ring-[#5B3A8C]/20'}`}
                             />
-                            <input
-                              type="checkbox"
-                              checked={data.is_absent || false}
+                            <input type="checkbox" checked={data.is_absent || false}
                               onChange={(e) => handleMarkChange(student.student_id, subj, 'is_absent', e.target.checked)}
-                              className="w-3 h-3 rounded border-gray-300 text-red-500"
-                              title="Absent"
+                              className="w-3 h-3 rounded border-gray-300 text-red-500" title="Absent"
                             />
                           </div>
                         </td>
