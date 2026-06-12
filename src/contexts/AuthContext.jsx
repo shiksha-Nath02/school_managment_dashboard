@@ -21,21 +21,22 @@ export function AuthProvider({ children }) {
     if (!token) setUser(null);
   }, []);
 
-  const login = useCallback(async (emailOrRole, credentials) => {
+  const login = useCallback(async (usernameOrRole, credentials) => {
     setLoading(true);
     setError(null);
     try {
-      // Support both (email, password) string args and legacy (role, { userId, password }) shape
-      let email, password;
+      // Support both (username, password) string args and (role, { userId, password }) shape.
+      // userId from the login form carries the username (admission number / teacher ID).
+      let username, password;
       if (credentials && typeof credentials === 'object') {
-        email = credentials.userId || credentials.email;
+        username = credentials.username || credentials.userId;
         password = credentials.password;
       } else {
-        email = emailOrRole;
+        username = usernameOrRole;
         password = credentials;
       }
 
-      const response = await api.post('/auth/login', { email, password });
+      const response = await api.post('/auth/login', { username, password });
       const { token, user: userData } = response.data;
 
       localStorage.setItem('token', token);
