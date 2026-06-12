@@ -4,7 +4,7 @@ import { Users, Clock, CheckCircle2, AlertCircle, Loader2, LogIn, LogOut, BarCha
 import svc from '@/services/teacherAttendanceService';
 import CameraCapture from '@/components/common/CameraCapture';
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace('/api', '');
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '');
 
 const STATUS_CONFIG = {
   present:       { label: 'Present',       cls: 'bg-emerald-100 text-emerald-700' },
