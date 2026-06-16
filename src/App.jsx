@@ -54,6 +54,7 @@ import AdminStudentsPage from './pages/admin/AdminStudents';
 import AdminTeachersPage from './pages/admin/AdminTeachers';
 import AdminAddTeacherPage from './pages/admin/AdminAddTeacher';
 import AdminRemoveStudentPage from './pages/admin/AdminRemoveStudent';
+import AdminWebsite from './pages/admin/AdminWebsite';
 
 export default function App() {
   return (
@@ -126,6 +127,7 @@ export default function App() {
         <Route path="add-teacher" element={<AdminAddTeacherPage />} />
         <Route path="remove-student" element={<AdminRemoveStudentPage />} />
         <Route path="session" element={<AdminSessionSetup />} />
+        <Route path="website" element={<AdminWebsite />} />
       </Route>
 
       {/* ===== CATCH ALL ===== */}

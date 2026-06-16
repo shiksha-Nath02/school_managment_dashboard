@@ -187,7 +187,7 @@ export default function StudentDocsTab({ role = 'admin' }) {
                             <div className="flex items-center justify-center gap-1.5">
                               {/* View */}
                               <a
-                                href={fileUrl(doc.filePath)}
+                                href={doc.url || fileUrl(doc.filePath)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title={doc.fileName}
@@ -238,7 +238,7 @@ export default function StudentDocsTab({ role = 'admin' }) {
       </div>
 
       <p className="text-xs text-gray-400 text-center">
-        Accepts JPG, PNG, PDF · Max 10 MB per file · Files stored locally (S3 migration planned)
+        Accepts JPG, PNG, PDF · Max 10 MB per file · Stored securely on S3 (private, time-limited access links)
       </p>
     </div>
   );

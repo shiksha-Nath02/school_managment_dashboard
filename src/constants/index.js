@@ -171,5 +171,11 @@ export const SIDEBAR_NAV = {
         { key: 'remove-student', label: 'Remove Student', icon: 'UserMinus', path: '/admin/remove-student' },
       ],
     },
+    {
+      title: 'Website',
+      items: [
+        { key: 'website', label: 'Gallery & Notices', icon: 'Globe', path: '/admin/website' },
+      ],
+    },
   ],
 };

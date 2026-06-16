@@ -1,8 +1,22 @@
+import { useState, useEffect } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { getSiteConfig } from '../../config/siteConfig';
+import galleryService from '../../services/galleryService';
 
 export default function Gallery() {
-  const { gallery } = getSiteConfig();
+  const { gallery: configGallery } = getSiteConfig();
+  const [items, setItems] = useState(configGallery);
+
+  useEffect(() => {
+    galleryService.list()
+      .then((r) => {
+        const imgs = r.data.images || [];
+        if (imgs.length) {
+          setItems(imgs.map((g) => ({ src: g.url, label: g.caption || g.category })));
+        }
+      })
+      .catch(() => {}); // keep config placeholders on failure
+  }, []);
 
   return (
     <section id="gallery" className="py-20 px-6 md:px-12 max-w-7xl mx-auto">
@@ -14,7 +28,7 @@ export default function Gallery() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {gallery.map((g, i) => (
+        {items.map((g, i) => (
           <div
             key={i}
             className="group relative aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-brand-100 to-gold-light border border-gray-100 flex items-center justify-center animate-fade-up animate-start"

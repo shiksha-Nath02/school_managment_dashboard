@@ -381,8 +381,8 @@ export default function AdminTeacherAttendance() {
                 <div className="hidden md:flex items-center gap-1.5">
                   <span className="text-sm text-gray-600 font-medium">{formatTime(record?.checkInTime)}</span>
                   {record?.checkInImage && (
-                    <button onClick={() => setPhotoPreview(`${API_BASE}/${record.checkInImage}`)} title="View check-in photo">
-                      <img src={`${API_BASE}/${record.checkInImage}`} alt="" className="w-7 h-7 rounded-lg object-cover border border-emerald-200 hover:scale-110 transition-transform cursor-zoom-in" />
+                    <button onClick={() => setPhotoPreview(record.checkInImage)} title="View check-in photo">
+                      <img src={record.checkInImage} alt="" className="w-7 h-7 rounded-lg object-cover border border-emerald-200 hover:scale-110 transition-transform cursor-zoom-in" />
                     </button>
                   )}
                 </div>
@@ -391,8 +391,8 @@ export default function AdminTeacherAttendance() {
                 <div className="hidden md:flex items-center gap-1.5">
                   <span className="text-sm text-gray-600 font-medium">{formatTime(record?.checkOutTime)}</span>
                   {record?.checkOutImage && (
-                    <button onClick={() => setPhotoPreview(`${API_BASE}/${record.checkOutImage}`)} title="View check-out photo">
-                      <img src={`${API_BASE}/${record.checkOutImage}`} alt="" className="w-7 h-7 rounded-lg object-cover border border-amber-200 hover:scale-110 transition-transform cursor-zoom-in" />
+                    <button onClick={() => setPhotoPreview(record.checkOutImage)} title="View check-out photo">
+                      <img src={record.checkOutImage} alt="" className="w-7 h-7 rounded-lg object-cover border border-amber-200 hover:scale-110 transition-transform cursor-zoom-in" />
                     </button>
                   )}
                 </div>

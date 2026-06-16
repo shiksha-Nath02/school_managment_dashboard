@@ -179,7 +179,7 @@ export default function TeacherMyAttendance() {
                     <p className="text-xl font-bold font-mono text-emerald-700">{formatTime(today.checkInTime)}</p>
                     {today.checkInImage && (
                       <img
-                        src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '')}/${today.checkInImage}`}
+                        src={today.checkInImage}
                         alt="Check-in"
                         className="mt-2 w-full h-20 object-cover rounded-lg"
                       />
@@ -196,7 +196,7 @@ export default function TeacherMyAttendance() {
                     <p className="text-xl font-bold font-mono text-amber-700">{formatTime(today.checkOutTime)}</p>
                     {today.checkOutImage && (
                       <img
-                        src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '')}/${today.checkOutImage}`}
+                        src={today.checkOutImage}
                         alt="Check-out"
                         className="mt-2 w-full h-20 object-cover rounded-lg"
                       />
