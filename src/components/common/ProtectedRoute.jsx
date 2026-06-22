@@ -1,7 +1,8 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
-const ROLE_HOME = { admin: '/admin', teacher: '/teacher', student: '/student' };
+// Super admin shares the /admin route tree (it sees the full admin nav).
+const ROLE_HOME = { admin: '/admin', superadmin: '/admin', teacher: '/teacher', student: '/student' };
 
 export default function ProtectedRoute({ allowedRoles, children }) {
   const { user } = useAuth();

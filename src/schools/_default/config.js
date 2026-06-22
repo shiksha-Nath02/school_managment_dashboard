@@ -48,6 +48,7 @@ const DEFAULT = {
       'A short, welcoming sentence about your school goes here — what you stand for and what makes you special. Replace this placeholder text later.',
     primaryCta: { label: 'Apply for Admission', href: '#contact' },
     secondaryCta: { label: 'Explore Academics', href: '#academics' },
+    image: '', // optional S3 URL — used as the full-bleed banner by image-rich layouts (e.g. 'heritage')
   },
 
   // ---- Quick stats strip -------------------------------------------------
@@ -72,6 +73,7 @@ const DEFAULT = {
       'Safe, modern, well-equipped campus — placeholder',
       'Focus on academics, sports, and values — placeholder',
     ],
+    image: '', // optional S3 URL — framed campus photo beside the text in image-rich layouts
   },
 
   // ---- Academics / programs offered --------------------------------------
@@ -83,13 +85,23 @@ const DEFAULT = {
   ],
 
   // ---- Facilities --------------------------------------------------------
+  // `image` is an optional S3 URL; image-rich layouts show it as the tile photo
+  // and fall back to the `icon` when it is empty.
   facilities: [
-    { icon: '📚', title: 'Library', desc: 'Placeholder text about the library facility.' },
-    { icon: '🔬', title: 'Science Labs', desc: 'Placeholder text about the science laboratories.' },
-    { icon: '💻', title: 'Computer Lab', desc: 'Placeholder text about the computer lab.' },
-    { icon: '⚽', title: 'Sports Ground', desc: 'Placeholder text about sports and play areas.' },
-    { icon: '🚌', title: 'Transport', desc: 'Placeholder text about the school bus service.' },
-    { icon: '🎨', title: 'Arts & Music', desc: 'Placeholder text about arts and music facilities.' },
+    { icon: '📚', title: 'Library', desc: 'Placeholder text about the library facility.', image: '' },
+    { icon: '🔬', title: 'Science Labs', desc: 'Placeholder text about the science laboratories.', image: '' },
+    { icon: '💻', title: 'Computer Lab', desc: 'Placeholder text about the computer lab.', image: '' },
+    { icon: '⚽', title: 'Sports Ground', desc: 'Placeholder text about sports and play areas.', image: '' },
+    { icon: '🚌', title: 'Transport', desc: 'Placeholder text about the school bus service.', image: '' },
+    { icon: '🎨', title: 'Arts & Music', desc: 'Placeholder text about arts and music facilities.', image: '' },
+  ],
+
+  // ---- Ticker headlines (scrolling news strip in heritage/campus layouts) -
+  // If empty, the ticker falls back to the notice titles below.
+  announcements: [
+    'Admissions open for the new academic session — apply today!',
+    'Congratulations to our students on outstanding board results.',
+    'Annual Sports Day and Cultural Fest coming soon.',
   ],
 
   // ---- Notices / announcements -------------------------------------------

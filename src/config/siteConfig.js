@@ -18,10 +18,40 @@ const SCHOOLS = {
 };
 
 // Resolve the active school's config from the current hostname.
+//
+// Dev preview (localhost only — real domains ignore all of this):
+//   ?site=<hostname>   selects a school and is remembered (localStorage), so you
+//                      can preview any school without DNS.
+//   ?layout=<key>      override the layout (classic | heritage | campus)
+//   ?palette=<name>    override the colour combination (green | blue | maroon)
+// e.g.  http://localhost:5173/?site=santrldpublicschool.com&layout=campus&palette=maroon
+// Layout/palette overrides let you compare every template × colour combination
+// live (reload after changing the URL — the theme is painted once at startup).
 export function getSiteConfig() {
   if (typeof window === 'undefined') return DEFAULT;
-  const host = window.location.hostname.replace(/^www\./, '');
-  return SCHOOLS[host] || DEFAULT;
+
+  let host = window.location.hostname.replace(/^www\./, '');
+  const isLocal = host === 'localhost' || host === '127.0.0.1';
+
+  if (!isLocal) return SCHOOLS[host] || DEFAULT;
+
+  // --- localhost preview overrides ---
+  let layout, palette;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const site = params.get('site');
+    if (site) localStorage.setItem('previewSite', site);
+    const preview = site || localStorage.getItem('previewSite');
+    if (preview) host = preview.replace(/^www\./, '');
+    layout = params.get('layout');
+    palette = params.get('palette');
+  } catch {
+    /* localStorage/URL unavailable — fall back to the real hostname */
+  }
+
+  const base = SCHOOLS[host] || DEFAULT;
+  if (!layout && !palette) return base;
+  return { ...base, ...(layout && { layout }), ...(palette && { palette }) };
 }
 
 // Resolve a config's palette: a name from _palettes.js, or an inline palette object.

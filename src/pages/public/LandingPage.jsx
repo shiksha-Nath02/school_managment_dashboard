@@ -8,14 +8,23 @@
 
 import { getSiteConfig } from '../../config/siteConfig';
 import Classic from '../../components/landing/layouts/Classic';
+import Heritage from '../../components/landing/layouts/Heritage';
+import Campus from '../../components/landing/layouts/Campus';
+import UiSwitcher from '../../components/dev/UiSwitcher';
 
 const LAYOUTS = {
-  classic: Classic,
-  // modern: Modern,   ← add layouts 2–5 here as we build them
+  classic: Classic, // soft, modern single-scroll
+  heritage: Heritage, // formal, image-rich single-scroll with motion
+  campus: Campus, // tabbed, page-per-section
 };
 
 export default function LandingPage() {
   const { layout } = getSiteConfig();
   const Layout = LAYOUTS[layout] || Classic;
-  return <Layout />;
+  return (
+    <>
+      <Layout />
+      <UiSwitcher />
+    </>
+  );
 }

@@ -16,7 +16,6 @@ import StudentClassTasks from './pages/student/StudentClassTasks';
 import {
   StudentResults,
   StudentFeeHistory,
-  StudentPayFee,
 } from './pages/student/StudentPages';
 
 // Teacher pages
@@ -78,7 +77,6 @@ export default function App() {
         <Route path="class-tasks" element={<StudentClassTasks />} />
         <Route path="attendance" element={<StudentAttendance />} />
         <Route path="fee-history" element={<StudentFeeHistory />} />
-        <Route path="pay-fee" element={<StudentPayFee />} />
       </Route>
 
       {/* ===== TEACHER DASHBOARD ===== */}
@@ -103,7 +101,7 @@ export default function App() {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
             <DashboardLayout role="admin" />
           </ProtectedRoute>
         }

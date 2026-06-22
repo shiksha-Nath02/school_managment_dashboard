@@ -70,8 +70,18 @@ export default {
         'fade-in': 'fadeIn 0.5s ease-out forwards',
         'slide-in-left': 'slideInLeft 0.5s ease-out forwards',
         'float': 'float 4s ease-in-out infinite',
+        'marquee': 'marquee 30s linear infinite',
+        'ken-burns': 'kenBurns 18s ease-in-out infinite alternate',
       },
       keyframes: {
+        marquee: {
+          from: { transform: 'translateX(0)' },
+          to: { transform: 'translateX(-50%)' },
+        },
+        kenBurns: {
+          from: { transform: 'scale(1)' },
+          to: { transform: 'scale(1.12)' },
+        },
         fadeUp: {
           from: { opacity: '0', transform: 'translateY(24px)' },
           to: { opacity: '1', transform: 'translateY(0)' },

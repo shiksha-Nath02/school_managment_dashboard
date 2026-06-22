@@ -26,7 +26,9 @@ export default function LoginPage() {
       // Single login for all roles — the server returns the role and we
       // redirect accordingly. Username = admission number / teacher ID.
       const user = await login(userId.trim(), password);
-      navigate(`/${user.role}`, { replace: true });
+      // Super admin shares the /admin route tree; everyone else lands on /<role>.
+      const home = user.role === 'superadmin' ? '/admin' : `/${user.role}`;
+      navigate(home, { replace: true });
     } catch (err) {
       // error is set in AuthContext
     }

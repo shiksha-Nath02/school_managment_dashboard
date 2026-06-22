@@ -1,11 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Trash2, Loader2, AlertCircle, CheckCircle2, RefreshCw, BookOpen } from 'lucide-react';
+import { UserPlus, Trash2, Loader2, AlertCircle, CheckCircle2, RefreshCw, BookOpen, KeyRound } from 'lucide-react';
 import teacherService from '../../services/teacherService';
 import TeacherProfileDrawer from '../../components/admin/TeacherProfileDrawer';
+import ResetPasswordModal from '../../components/common/ResetPasswordModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function AdminTeachers() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'superadmin';
+  const [resetUser, setResetUser] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -52,6 +57,15 @@ export default function AdminTeachers() {
       <TeacherProfileDrawer
         teacher={profileTeacher}
         onClose={() => setProfileTeacher(null)}
+      />
+
+      {/* Reset password modal (super admin only) */}
+      <ResetPasswordModal
+        open={!!resetUser}
+        userId={resetUser?.id}
+        userName={resetUser?.name}
+        onClose={() => setResetUser(null)}
+        onSuccess={() => showToast('success', 'Password reset successfully')}
       />
 
       {/* Toast */}
@@ -163,12 +177,22 @@ export default function AdminTeachers() {
                       {t.joining_date ? new Date(t.joining_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                     </td>
                     <td className="px-6 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => setConfirmId(t.id)}
-                        className="flex items-center gap-1 ml-auto px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 hover:border-red-300 hover:text-red-500 transition-all"
-                      >
-                        <Trash2 className="w-3 h-3" /> Remove
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {isSuperAdmin && t.user?.id && (
+                          <button
+                            onClick={() => setResetUser({ id: t.user.id, name: t.user.name || `Teacher ${t.id}` })}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 hover:border-brand-300 hover:text-brand-600 transition-all"
+                          >
+                            <KeyRound className="w-3 h-3" /> Reset
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setConfirmId(t.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 hover:border-red-300 hover:text-red-500 transition-all"
+                        >
+                          <Trash2 className="w-3 h-3" /> Remove
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -8,6 +8,11 @@ const authService = {
     });
     return response.data;
   },
+  changePassword: async (currentPassword, newPassword) => {
+    const response = await api.post('/auth/change-password', { currentPassword, newPassword });
+    return response.data;
+  },
+
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');

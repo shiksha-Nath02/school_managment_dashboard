@@ -35,6 +35,12 @@ const AdminSessionSetup = () => {
   // Promotion state
   const [promotions, setPromotions] = useState([]);
 
+  // Class-wise navigation for fee setup (step 2) and promotion (step 3)
+  const [feeClassTab, setFeeClassTab] = useState(null);
+  const [promoClassTab, setPromoClassTab] = useState(null);
+  const [bulkFee, setBulkFee] = useState({ monthly_fee: '', discount: '', discount_reason: '' });
+  const [bulkPromoTarget, setBulkPromoTarget] = useState('');
+
   // Step tracking
   const [step, setStep] = useState(1); // 1: Basic, 2: Fees, 3: Promotion, 4: Review
 
@@ -151,6 +157,98 @@ const AdminSessionSetup = () => {
     const nextClassName = String(parseInt(cls.class_name) + 1);
     return classes.find(c => c.class_name === nextClassName && c.section === cls.section);
   };
+
+  // Ordered list of classes that actually contain students from `list`.
+  const orderClasses = (list) => {
+    const ids = [...new Set(list.map(s => s.class_id))];
+    return ids
+      .map(id => getClassById(id))
+      .filter(Boolean)
+      .sort((a, b) =>
+        (parseInt(a.class_name) - parseInt(b.class_name)) || a.section.localeCompare(b.section)
+      );
+  };
+
+  const feeClasses = orderClasses(students);
+  const promoStudents = students.filter(s => s.status !== 'inactive');
+  const promoClasses = orderClasses(promoStudents);
+
+  // Completion status used to color the class tabs green (all done) vs white.
+  const feeStatus = (classId) => {
+    const cs = students.filter(s => s.class_id === classId);
+    const done = cs.filter(s => parseFloat(studentFees[s.id]?.monthly_fee) > 0).length;
+    return { done, total: cs.length, complete: cs.length > 0 && done === cs.length };
+  };
+  const promoStatus = (classId) => {
+    const cs = promoStudents.filter(s => s.class_id === classId);
+    const done = cs.filter(s => promotions.some(p => p.student_id === s.id)).length;
+    return { done, total: cs.length, complete: cs.length > 0 && done === cs.length };
+  };
+
+  // Apply-to-all helpers
+  const applyFeeToClass = (classId) => {
+    if (!(parseFloat(bulkFee.monthly_fee) > 0)) return;
+    setStudentFees(prev => {
+      const next = { ...prev };
+      students.filter(s => s.class_id === classId).forEach(s => {
+        next[s.id] = {
+          monthly_fee: bulkFee.monthly_fee,
+          discount: bulkFee.discount || 0,
+          discount_reason: bulkFee.discount_reason || ''
+        };
+      });
+      return next;
+    });
+  };
+  const promoteClass = (classId, targetClassId) => {
+    if (!targetClassId) return;
+    const ids = promoStudents.filter(s => s.class_id === classId).map(s => s.id);
+    setPromotions(prev => [
+      ...prev.filter(p => !ids.includes(p.student_id)),
+      ...ids.map(id => ({ student_id: id, new_class_id: parseInt(targetClassId) }))
+    ]);
+  };
+
+  // Default the active class tab to the first class once data is loaded.
+  useEffect(() => {
+    if (feeClassTab == null && feeClasses.length) setFeeClassTab(feeClasses[0].id);
+    if (promoClassTab == null && promoClasses.length) setPromoClassTab(promoClasses[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students, classes]);
+
+  // When the promotion tab changes, default the bulk target to the next class.
+  useEffect(() => {
+    if (promoClassTab != null) {
+      const next = getNextClass(promoClassTab);
+      setBulkPromoTarget(next ? String(next.id) : '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promoClassTab, classes]);
+
+  // Reusable class tab bar (green when that class is fully filled in).
+  const ClassTabs = ({ classList, selectedId, onSelect, getStatus }) => (
+    <div className="flex flex-wrap gap-2">
+      {classList.map(c => {
+        const st = getStatus(c.id);
+        const active = c.id === selectedId;
+        return (
+          <button
+            key={c.id}
+            onClick={() => onSelect(c.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors flex items-center gap-1.5
+              ${active ? 'ring-2 ring-brand-500/40 ' : ''}
+              ${st.complete
+                ? 'bg-green-100 border-green-300 text-green-700'
+                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+          >
+            {st.complete && <Check className="w-3 h-3" />}
+            {c.class_name}-{c.section}
+            <span className="text-[10px] font-medium opacity-70">{st.done}/{st.total}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -398,50 +496,92 @@ const AdminSessionSetup = () => {
                 )}
 
                 {form.fee_mode === 'individual' && (
-                  <div className="border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="max-h-96 overflow-y-auto">
-                      <table className="w-full">
-                        <thead className="bg-brand-50 sticky top-0">
-                          <tr>
-                            {['Student', 'Class', 'Monthly Fee (₹)', 'Discount (₹)', 'Reason'].map(h => (
-                              <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-brand-500 uppercase">{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {students.map((student, i) => {
-                            const cls = getClassById(student.class_id);
-                            const fee = studentFees[student.id] || {};
-                            return (
-                              <tr key={student.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                                <td className="px-4 py-2 text-sm text-gray-800">
-                                  {student.user?.name || `Student ${student.id}`}
-                                </td>
-                                <td className="px-4 py-2 text-sm text-gray-500">
-                                  {cls ? `${cls.class_name}-${cls.section}` : '-'}
-                                </td>
-                                <td className="px-4 py-2">
-                                  <input type="number" value={fee.monthly_fee || ''} placeholder="0"
-                                    onChange={(e) => handleStudentFeeChange(student.id, 'monthly_fee', e.target.value)}
-                                    className="w-24 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-brand-500/20 outline-none" />
-                                </td>
-                                <td className="px-4 py-2">
-                                  <input type="number" value={fee.discount || ''} placeholder="0"
-                                    onChange={(e) => handleStudentFeeChange(student.id, 'discount', e.target.value)}
-                                    className="w-20 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-brand-500/20 outline-none" />
-                                </td>
-                                <td className="px-4 py-2">
-                                  <input type="text" value={fee.discount_reason || ''} placeholder="e.g. Sibling"
-                                    onChange={(e) => handleStudentFeeChange(student.id, 'discount_reason', e.target.value)}
-                                    className="w-32 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-brand-500/20 outline-none" />
-                                </td>
+                  feeClasses.length === 0 ? (
+                    <p className="text-sm text-gray-400">No students found.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-xs text-gray-400">
+                        Pick a class tab and fill in fees. A tab turns <span className="text-green-600 font-medium">green</span> once every student in it has a fee set.
+                      </p>
+                      <ClassTabs
+                        classList={feeClasses}
+                        selectedId={feeClassTab}
+                        onSelect={setFeeClassTab}
+                        getStatus={feeStatus}
+                      />
+
+                      {/* Apply to all in selected class */}
+                      <div className="bg-brand-50/60 border border-brand-100 rounded-xl p-4 flex flex-wrap items-end gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Monthly Fee (₹)</label>
+                          <input type="number" value={bulkFee.monthly_fee} placeholder="e.g. 2000"
+                            onChange={(e) => setBulkFee(prev => ({ ...prev, monthly_fee: e.target.value }))}
+                            className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Discount (₹)</label>
+                          <input type="number" value={bulkFee.discount} placeholder="0"
+                            onChange={(e) => setBulkFee(prev => ({ ...prev, discount: e.target.value }))}
+                            className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Reason</label>
+                          <input type="text" value={bulkFee.discount_reason} placeholder="optional"
+                            onChange={(e) => setBulkFee(prev => ({ ...prev, discount_reason: e.target.value }))}
+                            className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 outline-none" />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => applyFeeToClass(feeClassTab)}
+                          disabled={!(parseFloat(bulkFee.monthly_fee) > 0)}
+                          className="px-4 py-2 bg-brand-500 text-white rounded-lg text-sm font-semibold hover:bg-brand-600 transition-colors disabled:opacity-40"
+                        >
+                          Apply to all in {getClassById(feeClassTab)?.class_name}-{getClassById(feeClassTab)?.section}
+                        </button>
+                      </div>
+
+                      <div className="border border-gray-200 rounded-xl overflow-hidden">
+                        <div className="max-h-96 overflow-y-auto">
+                          <table className="w-full">
+                            <thead className="bg-brand-50 sticky top-0">
+                              <tr>
+                                {['Student', 'Monthly Fee (₹)', 'Discount (₹)', 'Reason'].map(h => (
+                                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-brand-500 uppercase">{h}</th>
+                                ))}
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                            </thead>
+                            <tbody>
+                              {students.filter(s => s.class_id === feeClassTab).map((student, i) => {
+                                const fee = studentFees[student.id] || {};
+                                return (
+                                  <tr key={student.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                                    <td className="px-4 py-2 text-sm text-gray-800">
+                                      {student.user?.name || `Student ${student.id}`}
+                                    </td>
+                                    <td className="px-4 py-2">
+                                      <input type="number" value={fee.monthly_fee || ''} placeholder="0"
+                                        onChange={(e) => handleStudentFeeChange(student.id, 'monthly_fee', e.target.value)}
+                                        className="w-24 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-brand-500/20 outline-none" />
+                                    </td>
+                                    <td className="px-4 py-2">
+                                      <input type="number" value={fee.discount || ''} placeholder="0"
+                                        onChange={(e) => handleStudentFeeChange(student.id, 'discount', e.target.value)}
+                                        className="w-20 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-brand-500/20 outline-none" />
+                                    </td>
+                                    <td className="px-4 py-2">
+                                      <input type="text" value={fee.discount_reason || ''} placeholder="e.g. Sibling"
+                                        onChange={(e) => handleStudentFeeChange(student.id, 'discount_reason', e.target.value)}
+                                        className="w-32 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-brand-500/20 outline-none" />
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )
                 )}
 
                 <div className="flex justify-between">
@@ -477,62 +617,100 @@ const AdminSessionSetup = () => {
                   </button>
                 </div>
                 <p className="text-sm text-gray-400">
-                  Select which students to promote to the next class. Skip if promotions aren't needed yet.
+                  Pick a class tab and set where its students go. A tab turns <span className="text-green-600 font-medium">green</span> once every student in it has a target. Skip if promotions aren't needed yet.
                 </p>
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                  <div className="max-h-96 overflow-y-auto">
-                    <table className="w-full">
-                      <thead className="bg-brand-50 sticky top-0">
-                        <tr>
-                          {['Student', 'Current Class', '', 'Promote To'].map((h, i) => (
-                            <th key={i} className="px-4 py-3 text-left text-xs font-semibold text-brand-500 uppercase">{h}</th>
+                {promoClasses.length === 0 ? (
+                  <p className="text-sm text-gray-400">No students to promote.</p>
+                ) : (
+                  <div className="space-y-4">
+                    <ClassTabs
+                      classList={promoClasses}
+                      selectedId={promoClassTab}
+                      onSelect={setPromoClassTab}
+                      getStatus={promoStatus}
+                    />
+
+                    {/* Promote all in selected class */}
+                    <div className="bg-brand-50/60 border border-brand-100 rounded-xl p-4 flex flex-wrap items-end gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-500 mb-1">Promote all of {getClassById(promoClassTab)?.class_name}-{getClassById(promoClassTab)?.section} to</label>
+                        <select
+                          value={bulkPromoTarget}
+                          onChange={(e) => setBulkPromoTarget(e.target.value)}
+                          className="w-44 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 outline-none"
+                        >
+                          <option value="">Select class...</option>
+                          {classes.map(cls => (
+                            <option key={cls.id} value={cls.id}>{cls.class_name}-{cls.section}</option>
                           ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {students.filter(s => s.status !== 'inactive').map((student, i) => {
-                          const currentClass = getClassById(student.class_id);
-                          const promo = promotions.find(p => p.student_id === student.id);
-                          return (
-                            <tr key={student.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                              <td className="px-4 py-2 text-sm text-gray-800">
-                                {student.user?.name || `Student ${student.id}`}
-                              </td>
-                              <td className="px-4 py-2 text-sm text-gray-500">
-                                {currentClass ? `${currentClass.class_name}-${currentClass.section}` : '-'}
-                              </td>
-                              <td className="px-4 py-2 text-center">
-                                <ArrowRight className="w-4 h-4 text-gray-300 mx-auto" />
-                              </td>
-                              <td className="px-4 py-2">
-                                <select
-                                  value={promo?.new_class_id || ''}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val) {
-                                      setPromotions(prev => [
-                                        ...prev.filter(p => p.student_id !== student.id),
-                                        { student_id: student.id, new_class_id: parseInt(val) }
-                                      ]);
-                                    } else {
-                                      setPromotions(prev => prev.filter(p => p.student_id !== student.id));
-                                    }
-                                  }}
-                                  className="w-40 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-brand-500/20 outline-none"
-                                >
-                                  <option value="">No change</option>
-                                  {classes.map(cls => (
-                                    <option key={cls.id} value={cls.id}>{cls.class_name}-{cls.section}</option>
-                                  ))}
-                                </select>
-                              </td>
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => promoteClass(promoClassTab, bulkPromoTarget)}
+                        disabled={!bulkPromoTarget}
+                        className="px-4 py-2 bg-brand-500 text-white rounded-lg text-sm font-semibold hover:bg-brand-600 transition-colors disabled:opacity-40"
+                      >
+                        Apply to class
+                      </button>
+                    </div>
+
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                      <div className="max-h-96 overflow-y-auto">
+                        <table className="w-full">
+                          <thead className="bg-brand-50 sticky top-0">
+                            <tr>
+                              {['Student', 'Current Class', '', 'Promote To'].map((h, i) => (
+                                <th key={i} className="px-4 py-3 text-left text-xs font-semibold text-brand-500 uppercase">{h}</th>
+                              ))}
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                          </thead>
+                          <tbody>
+                            {promoStudents.filter(s => s.class_id === promoClassTab).map((student, i) => {
+                              const currentClass = getClassById(student.class_id);
+                              const promo = promotions.find(p => p.student_id === student.id);
+                              return (
+                                <tr key={student.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                                  <td className="px-4 py-2 text-sm text-gray-800">
+                                    {student.user?.name || `Student ${student.id}`}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-gray-500">
+                                    {currentClass ? `${currentClass.class_name}-${currentClass.section}` : '-'}
+                                  </td>
+                                  <td className="px-4 py-2 text-center">
+                                    <ArrowRight className="w-4 h-4 text-gray-300 mx-auto" />
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <select
+                                      value={promo?.new_class_id || ''}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val) {
+                                          setPromotions(prev => [
+                                            ...prev.filter(p => p.student_id !== student.id),
+                                            { student_id: student.id, new_class_id: parseInt(val) }
+                                          ]);
+                                        } else {
+                                          setPromotions(prev => prev.filter(p => p.student_id !== student.id));
+                                        }
+                                      }}
+                                      className="w-40 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-brand-500/20 outline-none"
+                                    >
+                                      <option value="">No change</option>
+                                      {classes.map(cls => (
+                                        <option key={cls.id} value={cls.id}>{cls.class_name}-{cls.section}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="flex justify-between">
                   <button onClick={() => setStep(2)} className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">
                     ← Back

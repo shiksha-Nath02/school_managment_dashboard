@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, UserPlus, Trash2, Loader2, AlertCircle, X, CheckCircle2, RefreshCw, Download, FolderOpen } from 'lucide-react';
+import { Search, UserPlus, Trash2, Loader2, AlertCircle, X, CheckCircle2, RefreshCw, Download, FolderOpen, KeyRound } from 'lucide-react';
 import studentService from '../../services/studentService';
 import StudentProfileDrawer from '../../components/admin/StudentProfileDrawer';
 import StudentDocsTab from '../../components/admin/StudentDocsTab';
+import ResetPasswordModal from '../../components/common/ResetPasswordModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 const STATUS_BADGE = {
   active:   'bg-emerald-100 text-emerald-700',
@@ -13,6 +15,9 @@ const STATUS_BADGE = {
 
 export default function AdminStudents() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'superadmin';
+  const [resetUser, setResetUser] = useState(null); // { id, name } of user whose password to reset
   const [tab, setTab] = useState('list');
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -114,6 +119,15 @@ export default function AdminStudents() {
         student={profileStudent}
         onClose={() => setProfileStudent(null)}
         onUpdated={fetchStudents}
+      />
+
+      {/* Reset password modal (super admin only) */}
+      <ResetPasswordModal
+        open={!!resetUser}
+        userId={resetUser?.id}
+        userName={resetUser?.name}
+        onClose={() => setResetUser(null)}
+        onSuccess={() => showToast('success', 'Password reset successfully')}
       />
 
       {/* Toast */}
@@ -297,14 +311,24 @@ export default function AdminStudents() {
                       </span>
                     </td>
                     <td className="px-6 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                      {s.status !== 'inactive' && (
-                        <button
-                          onClick={() => setConfirmId(s.id)}
-                          className="flex items-center gap-1 ml-auto px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 hover:border-red-300 hover:text-red-500 transition-all"
-                        >
-                          <Trash2 className="w-3 h-3" /> Remove
-                        </button>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {isSuperAdmin && s.user?.id && (
+                          <button
+                            onClick={() => setResetUser({ id: s.user.id, name: s.user.name || `Student ${s.id}` })}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 hover:border-brand-300 hover:text-brand-600 transition-all"
+                          >
+                            <KeyRound className="w-3 h-3" /> Reset
+                          </button>
+                        )}
+                        {s.status !== 'inactive' && (
+                          <button
+                            onClick={() => setConfirmId(s.id)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 hover:border-red-300 hover:text-red-500 transition-all"
+                          >
+                            <Trash2 className="w-3 h-3" /> Remove
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

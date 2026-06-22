@@ -44,6 +44,7 @@ export const SUBJECTS = [
 // ===== ROLE CONFIGURATION =====
 export const ROLES = {
   ADMIN: 'admin',
+  SUPERADMIN: 'superadmin',
   TEACHER: 'teacher',
   STUDENT: 'student',
 };
@@ -54,6 +55,17 @@ export const ROLE_CONFIG = {
     badge: 'Admin Portal',
     icon: '🛡️',
     color: 'brand',       // tailwind color key
+    accent: '#2D5A27',
+    lightBg: 'bg-brand-50',
+    textColor: 'text-brand-500',
+    btnClass: 'bg-brand-500 hover:bg-brand-600',
+    avatarBg: 'bg-brand-500',
+  },
+  [ROLES.SUPERADMIN]: {
+    label: 'Super Admin',
+    badge: 'Super Admin Portal',
+    icon: '🛡️',
+    color: 'brand',       // reuse admin (brand) styling
     accent: '#2D5A27',
     lightBg: 'bg-brand-50',
     textColor: 'text-brand-500',
@@ -101,7 +113,6 @@ export const SIDEBAR_NAV = {
       title: 'Finance',
       items: [
         { key: 'fee-history', label: 'Fee History', icon: 'Receipt', path: '/student/fee-history' },
-        { key: 'pay-fee', label: 'Pay Fee', icon: 'CreditCard', path: '/student/pay-fee' },
       ],
     },
   ],
