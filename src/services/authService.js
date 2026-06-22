@@ -3,11 +3,16 @@ import api from './api';
 const authService = {
   login: async (role, credentials) => {
     const response = await api.post('/auth/login', {
-      email: credentials.userId,
+      username: credentials.username || credentials.userId,
       password: credentials.password,
     });
     return response.data;
   },
+  changePassword: async (currentPassword, newPassword) => {
+    const response = await api.post('/auth/change-password', { currentPassword, newPassword });
+    return response.data;
+  },
+
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');

@@ -1,15 +1,35 @@
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLE_CONFIG, SIDEBAR_NAV } from '../../constants';
 import Logo from '../common/Logo';
+import ChangePasswordModal from '../common/ChangePasswordModal';
 import * as Icons from 'lucide-react';
+
+// Nav items only the super admin may see (regular admin loses these tabs).
+const SUPERADMIN_ONLY_KEYS = ['session', 'profit'];
 
 export default function Sidebar({ role }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const config = ROLE_CONFIG[role];
-  const navSections = SIDEBAR_NAV[role] || [];
+
+  // The /admin route tree is shared by admin and superadmin. A regular admin
+  // sees the same nav minus the Session Setup and Profit tabs.
+  const isRestrictedAdmin = role === 'admin' && user?.role !== 'superadmin';
+  const navSections = (SIDEBAR_NAV[role] || [])
+    .map((section) => ({
+      ...section,
+      items: isRestrictedAdmin
+        ? section.items.filter((item) => !SUPERADMIN_ONLY_KEYS.includes(item.key))
+        : section.items,
+    }))
+    .filter((section) => section.items.length > 0);
+
+  const badge = user?.role === 'superadmin' ? 'Super Admin Portal' : config.badge;
+
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -47,7 +67,7 @@ export default function Sidebar({ role }) {
         <span
           className={`inline-block px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest ${config.lightBg} ${config.textColor}`}
         >
-          {config.badge}
+          {badge}
         </span>
       </div>
 
@@ -80,8 +100,15 @@ export default function Sidebar({ role }) {
         ))}
       </nav>
 
-      {/* Logout */}
-      <div className="px-3 py-4 border-t border-gray-100 mt-auto">
+      {/* Account actions */}
+      <div className="px-3 py-4 border-t border-gray-100 mt-auto space-y-0.5">
+        <button
+          onClick={() => setShowChangePassword(true)}
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[13px] font-medium text-gray-400 hover:bg-surface-alt hover:text-gray-700 transition-all cursor-pointer"
+        >
+          <Icons.KeyRound size={18} />
+          Change Password
+        </button>
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[13px] font-medium text-red-400 hover:bg-red-50 hover:text-red-600 transition-all cursor-pointer"
@@ -90,6 +117,12 @@ export default function Sidebar({ role }) {
           Logout
         </button>
       </div>
+
+      <ChangePasswordModal
+        open={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        btnClass={config.btnClass}
+      />
     </aside>
   );
 }

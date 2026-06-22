@@ -1,3 +1,25 @@
+// ===== MARKS / EXAM CONSTANTS =====
+export const EXAM_TYPES = [
+  { value: 'class_test', label: 'Class Test' },
+  { value: 'ut1', label: 'Unit Test 1' },
+  { value: 'ut2', label: 'Unit Test 2' },
+  { value: 'ut3', label: 'Unit Test 3' },
+  { value: 'ut4', label: 'Unit Test 4' },
+  { value: 'midterm', label: 'Midterm' },
+  { value: 'final', label: 'Final Exam' },
+];
+
+export const GRADE_COLORS = {
+  'A+': 'text-green-700 bg-green-50 border-green-200',
+  'A':  'text-green-600 bg-green-50 border-green-200',
+  'B+': 'text-blue-600 bg-blue-50 border-blue-200',
+  'B':  'text-blue-500 bg-blue-50 border-blue-200',
+  'C':  'text-amber-600 bg-amber-50 border-amber-200',
+  'D':  'text-orange-600 bg-orange-50 border-orange-200',
+  'F':  'text-red-600 bg-red-50 border-red-200',
+  'AB': 'text-gray-500 bg-gray-50 border-gray-200',
+};
+
 // ===== TIMETABLE CONSTANTS =====
 export const SCHOOL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -22,6 +44,7 @@ export const SUBJECTS = [
 // ===== ROLE CONFIGURATION =====
 export const ROLES = {
   ADMIN: 'admin',
+  SUPERADMIN: 'superadmin',
   TEACHER: 'teacher',
   STUDENT: 'student',
 };
@@ -32,6 +55,17 @@ export const ROLE_CONFIG = {
     badge: 'Admin Portal',
     icon: '🛡️',
     color: 'brand',       // tailwind color key
+    accent: '#2D5A27',
+    lightBg: 'bg-brand-50',
+    textColor: 'text-brand-500',
+    btnClass: 'bg-brand-500 hover:bg-brand-600',
+    avatarBg: 'bg-brand-500',
+  },
+  [ROLES.SUPERADMIN]: {
+    label: 'Super Admin',
+    badge: 'Super Admin Portal',
+    icon: '🛡️',
+    color: 'brand',       // reuse admin (brand) styling
     accent: '#2D5A27',
     lightBg: 'bg-brand-50',
     textColor: 'text-brand-500',
@@ -79,7 +113,6 @@ export const SIDEBAR_NAV = {
       title: 'Finance',
       items: [
         { key: 'fee-history', label: 'Fee History', icon: 'Receipt', path: '/student/fee-history' },
-        { key: 'pay-fee', label: 'Pay Fee', icon: 'CreditCard', path: '/student/pay-fee' },
       ],
     },
   ],
@@ -89,9 +122,9 @@ export const SIDEBAR_NAV = {
       title: 'Main',
       items: [
         { key: 'profile', label: 'My Profile', icon: 'User', path: '/teacher' },
+        { key: 'students', label: 'My Students', icon: 'GraduationCap', path: '/teacher/students' },
         { key: 'timetable', label: 'Timetable', icon: 'Calendar', path: '/teacher/timetable' },
         { key: 'class-tasks', label: 'Classwork/Homework', icon: 'ClipboardList', path: '/teacher/class-tasks' },
-        { key: 'class-data', label: 'Class Data', icon: 'ClipboardList', path: '/teacher/class-data' },
       ],
     },
     {
@@ -124,6 +157,7 @@ export const SIDEBAR_NAV = {
       title: 'Finance',
       items: [
         { key: 'fee-individual', label: 'Individual Fee', icon: 'IndianRupee', path: '/admin/fee-individual' },
+        { key: 'fee-bulk', label: 'Bulk Payment', icon: 'Banknote', path: '/admin/fee-bulk' },
         { key: 'fee-dues', label: 'Students with Dues', icon: 'AlertTriangle', path: '/admin/fee-dues' },
         { key: 'fee-classwise', label: 'Class-wise Report', icon: 'ClipboardList', path: '/admin/fee-classwise' },
         { key: 'salary', label: 'Salary', icon: 'Banknote', path: '/admin/salary' },
@@ -142,9 +176,16 @@ export const SIDEBAR_NAV = {
     {
       title: 'Manage',
       items: [
+        { key: 'session', label: 'Session Setup', icon: 'Settings2', path: '/admin/session' },
         { key: 'add-student', label: 'Add Student', icon: 'UserPlus', path: '/admin/add-student' },
         { key: 'add-teacher', label: 'Add Teacher', icon: 'UserPlus', path: '/admin/add-teacher' },
         { key: 'remove-student', label: 'Remove Student', icon: 'UserMinus', path: '/admin/remove-student' },
+      ],
+    },
+    {
+      title: 'Website',
+      items: [
+        { key: 'website', label: 'Gallery & Notices', icon: 'Globe', path: '/admin/website' },
       ],
     },
   ],

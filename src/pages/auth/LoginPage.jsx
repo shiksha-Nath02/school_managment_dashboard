@@ -1,48 +1,37 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Eye, EyeOff, Shield, BookOpen, GraduationCap, Loader2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { ROLES, ROLE_CONFIG } from '../../constants';
 import Logo from '../../components/common/Logo';
 
-const ROLE_TABS = [
-  { key: ROLES.ADMIN, label: 'Admin', Icon: Shield },
-  { key: ROLES.TEACHER, label: 'Teacher', Icon: BookOpen },
-  { key: ROLES.STUDENT, label: 'Student', Icon: GraduationCap },
-];
-
 export default function LoginPage() {
-  const [activeRole, setActiveRole] = useState(ROLES.ADMIN);
+  const navigate = useNavigate();
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
 
   const { login, loading, error: authError } = useAuth();
-  const config = ROLE_CONFIG[activeRole];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLocalError('');
 
     if (!userId.trim() || !password.trim()) {
-      setLocalError('Please enter your ID and password');
+      setLocalError('Please enter your username and password');
       return;
     }
 
     try {
-      await login(activeRole, { userId: userId.trim(), password });
-      // App.jsx handles redirect: user ? <Navigate to={`/${user.role}`}> : <LoginPage />
+      // Single login for all roles — the server returns the role and we
+      // redirect accordingly. Username = admission number / teacher ID.
+      const user = await login(userId.trim(), password);
+      // Super admin shares the /admin route tree; everyone else lands on /<role>.
+      const home = user.role === 'superadmin' ? '/admin' : `/${user.role}`;
+      navigate(home, { replace: true });
     } catch (err) {
       // error is set in AuthContext
     }
-  };
-
-  const handleRoleSwitch = (role) => {
-    setActiveRole(role);
-    setLocalError('');
-    setUserId('');
-    setPassword('');
   };
 
   const displayError = localError || authError;
@@ -72,32 +61,6 @@ export default function LoginPage() {
           <h2 className="font-display text-2xl font-bold mt-6 mb-1.5">Welcome back</h2>
           <p className="text-sm text-gray-400 mb-7">Sign in to your portal</p>
 
-          {/* Role Tabs */}
-          <div className="flex gap-1.5 bg-surface-alt rounded-xl p-1 mb-7">
-            {ROLE_TABS.map(({ key, label, Icon }) => {
-              const isActive = activeRole === key;
-              const activeStyles = {
-                admin: 'text-brand-500',
-                teacher: 'text-teacher-500',
-                student: 'text-student-500',
-              };
-              return (
-                <button
-                  key={key}
-                  onClick={() => handleRoleSwitch(key)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-[10px] text-sm font-semibold transition-all cursor-pointer
-                    ${isActive
-                      ? `bg-white shadow-soft ${activeStyles[key]}`
-                      : 'text-gray-400 hover:text-gray-600'
-                    }`}
-                >
-                  <Icon size={15} />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Error */}
@@ -107,16 +70,17 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* User ID */}
+            {/* Username (admission number for students, teacher ID for teachers) */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Email
+                Username
               </label>
               <input
-                type="email"
+                type="text"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                placeholder="Enter your email"
+                placeholder="Admission number / Teacher ID"
+                autoComplete="username"
                 className="w-full px-4 py-3 bg-surface-bg border border-gray-200 rounded-lg text-sm font-medium text-gray-900 placeholder:text-gray-300 outline-none transition-all focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10"
               />
             </div>
@@ -132,6 +96,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
+                  autoComplete="current-password"
                   className="w-full px-4 py-3 pr-11 bg-surface-bg border border-gray-200 rounded-lg text-sm font-medium text-gray-900 placeholder:text-gray-300 outline-none transition-all focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10"
                 />
                 <button
@@ -162,7 +127,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-3.5 rounded-lg text-white font-semibold text-sm transition-all hover:-translate-y-0.5 hover:shadow-card disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2 cursor-pointer ${config.btnClass}`}
+              className="w-full py-3.5 rounded-lg text-white font-semibold text-sm transition-all hover:-translate-y-0.5 hover:shadow-card disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2 cursor-pointer bg-brand-500 hover:bg-brand-600"
             >
               {loading ? (
                 <>
