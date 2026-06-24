@@ -21,6 +21,12 @@ const teacherService = {
     return response.data;
   },
 
+  // Superadmin only — toggle whether a teacher may edit students in her own class.
+  setTeacherPermissions: async (id, can_edit_students) => {
+    const response = await api.put(`/admin/teachers/${id}/permissions`, { can_edit_students });
+    return response.data;
+  },
+
   getTeacherAttendance: async (id, params = {}) => {
     const response = await api.get(`/admin/teachers/${id}/attendance`, { params });
     return response.data;

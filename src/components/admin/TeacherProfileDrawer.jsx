@@ -2,8 +2,29 @@ import { useState, useEffect } from 'react';
 import {
   X, User, Calendar, BookOpen, IndianRupee,
   Loader2, AlertCircle, GraduationCap, Users,
+  Pencil, CheckCircle2, ShieldCheck, Eye, EyeOff,
 } from 'lucide-react';
 import teacherService from '../../services/teacherService';
+import { useAuth } from '../../contexts/AuthContext';
+import { TEACHER_GROUPS, TEACHER_FIELD_NAMES, buildTeacherPayload } from '../../constants/teacherFields';
+
+const editInp =
+  'w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-300 outline-none transition-all focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10';
+const editLabel = 'block text-xs font-semibold text-gray-500 mb-1';
+
+// Build the edit form's initial state from a teacher record.
+function teacherToForm(teacher) {
+  const u = teacher.user || {};
+  const form = {
+    name: u.name || '', username: u.username || '', phone: u.phone || '', email: u.email || '', password: '',
+  };
+  TEACHER_FIELD_NAMES.forEach((k) => {
+    const v = teacher[k];
+    // Trim ISO date columns down to YYYY-MM-DD for <input type="date">.
+    form[k] = v == null ? '' : (typeof v === 'string' && v.includes('T') ? v.split('T')[0] : v);
+  });
+  return form;
+}
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -28,28 +49,190 @@ function money(n) { return `₹${Number(n || 0).toLocaleString('en-IN')}`; }
 
 // ── Info tab ─────────────────────────────────────────────────────────────────
 
-function InfoTab({ teacher }) {
+function InfoTab({ teacher, onUpdated, isSuperAdmin }) {
+  const [editing, setEditing]   = useState(false);
+  const [form, setForm]         = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [saveErr, setSaveErr]   = useState('');
+  // Local mirror so the toggle reflects instantly; seeded from the teacher record.
+  const [canEdit, setCanEdit]   = useState(!!teacher.can_edit_students);
+  const [permSaving, setPermSaving] = useState(false);
+
+  useEffect(() => { setCanEdit(!!teacher.can_edit_students); }, [teacher]);
+
   const u = teacher.user || {};
   const rows = [
+    ['Login ID',     u.username],
     ['Full name',    u.name],
     ['Email',        u.email],
     ['Phone',        u.phone || '—'],
     ['Subject',      teacher.subject || '—'],
+    ['Designation',  teacher.designation || '—'],
+    ['Qualification',teacher.qualification || '—'],
     ['Monthly salary', teacher.salary ? money(teacher.salary) : '—'],
     ['Joining date', teacher.joining_date
       ? new Date(teacher.joining_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
       : '—'],
     ['Status', teacher.user?.is_active !== false ? 'Active' : 'Inactive'],
   ];
+
+  const openEdit = () => {
+    setForm(teacherToForm(teacher));
+    setSaveErr('');
+    setShowPassword(false);
+    setEditing(true);
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((p) => ({ ...p, [name]: value }));
+    setSaveErr('');
+  };
+
+  const handleSave = async () => {
+    if (!form.name?.trim())     { setSaveErr('Name is required'); return; }
+    if (!form.username?.trim()) { setSaveErr('Login ID is required'); return; }
+    if (form.email && !/\S+@\S+\.\S+/.test(form.email)) { setSaveErr('Enter a valid email'); return; }
+    setSaving(true);
+    setSaveErr('');
+    try {
+      // Drop the password field entirely when left blank so we don't reset it.
+      const payload = buildTeacherPayload(form);
+      const res = await teacherService.updateTeacher(teacher.id, payload);
+      setEditing(false);
+      onUpdated?.(res.teacher || null);
+    } catch (e) {
+      setSaveErr(e.response?.data?.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const togglePermission = async () => {
+    const next = !canEdit;
+    setPermSaving(true);
+    setCanEdit(next); // optimistic
+    try {
+      await teacherService.setTeacherPermissions(teacher.id, next);
+      onUpdated?.(null);
+    } catch {
+      setCanEdit(!next); // revert on failure
+    } finally {
+      setPermSaving(false);
+    }
+  };
+
+  const renderField = (fld) => (
+    <div key={fld.name} className={fld.full ? 'col-span-2' : ''}>
+      <label className={editLabel}>{fld.label}</label>
+      {fld.options ? (
+        <select name={fld.name} value={form[fld.name] ?? ''} onChange={handleChange} className={`${editInp} bg-white`}>
+          <option value="">Select…</option>
+          {fld.options.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : fld.textarea ? (
+        <textarea name={fld.name} value={form[fld.name] ?? ''} onChange={handleChange} rows={2} placeholder={fld.placeholder} className={`${editInp} resize-none`} />
+      ) : (
+        <input type={fld.type || 'text'} name={fld.name} value={form[fld.name] ?? ''} onChange={handleChange} placeholder={fld.placeholder} min={fld.type === 'number' ? '0' : undefined} className={editInp} />
+      )}
+    </div>
+  );
+
   return (
-    <dl className="divide-y divide-gray-100">
-      {rows.map(([label, val]) => (
-        <div key={label} className="flex items-start gap-4 py-3">
-          <dt className="w-36 shrink-0 text-xs font-semibold text-gray-400 uppercase tracking-wide">{label}</dt>
-          <dd className="text-sm text-gray-800 font-medium">{val ?? '—'}</dd>
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Teacher Details</p>
+        <button onClick={openEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-all">
+          <Pencil className="w-3 h-3" /> Edit Details
+        </button>
+      </div>
+
+      <dl className="divide-y divide-gray-100">
+        {rows.map(([label, val]) => (
+          <div key={label} className="flex items-start gap-4 py-3">
+            <dt className="w-36 shrink-0 text-xs font-semibold text-gray-400 uppercase tracking-wide">{label}</dt>
+            <dd className="text-sm text-gray-800 font-medium">{val ?? '—'}</dd>
+          </div>
+        ))}
+      </dl>
+
+      {/* Superadmin-only: lets this teacher edit students in her own class. */}
+      {isSuperAdmin && (
+        <div className="mt-5 flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3.5">
+          <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-gray-800">Can edit students</p>
+            <p className="text-xs text-gray-500 mt-0.5">Allow this teacher to edit profiles of students in her own class.</p>
+          </div>
+          <button
+            onClick={togglePermission}
+            disabled={permSaving}
+            role="switch"
+            aria-checked={canEdit}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${canEdit ? 'bg-emerald-500' : 'bg-gray-300'}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${canEdit ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
         </div>
-      ))}
-    </dl>
+      )}
+
+      {/* Edit modal */}
+      {editing && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+              <h3 className="font-display font-bold text-gray-900">Edit Teacher</h3>
+              <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="overflow-y-auto px-6 py-4 space-y-5">
+              {/* Identity & login */}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Identity & login</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className={editLabel}>Full name *</label><input name="name" value={form.name ?? ''} onChange={handleChange} className={editInp} /></div>
+                  <div><label className={editLabel}>Login ID *</label><input name="username" value={form.username ?? ''} onChange={handleChange} className={editInp} /></div>
+                  <div><label className={editLabel}>Phone</label><input name="phone" value={form.phone ?? ''} onChange={handleChange} className={editInp} /></div>
+                  <div><label className={editLabel}>Email</label><input type="email" name="email" value={form.email ?? ''} onChange={handleChange} className={editInp} /></div>
+                  <div className="col-span-2">
+                    <label className={editLabel}>New password (leave blank to keep current)</label>
+                    <div className="relative">
+                      <input type={showPassword ? 'text' : 'password'} name="password" value={form.password ?? ''} onChange={handleChange} placeholder="••••••••" className={`${editInp} pr-10`} />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {TEACHER_GROUPS.map((g) => (
+                <div key={g.title}>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{g.title}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {g.fields.map(renderField)}
+                  </div>
+                </div>
+              ))}
+
+              {saveErr && <p className="text-xs text-red-500">{saveErr}</p>}
+            </div>
+
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
+              <button onClick={handleSave} disabled={saving}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 disabled:opacity-50 transition-all">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Save Changes
+              </button>
+              <button onClick={() => setEditing(false)} className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -268,8 +451,10 @@ function ErrorMsg({ msg }) {
 
 // ── Main Drawer ───────────────────────────────────────────────────────────────
 
-export default function TeacherProfileDrawer({ teacher, onClose }) {
+export default function TeacherProfileDrawer({ teacher, onClose, onUpdated }) {
   const [activeTab, setActiveTab] = useState('info');
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'superadmin';
 
   if (!teacher) return null;
 
@@ -312,7 +497,7 @@ export default function TeacherProfileDrawer({ teacher, onClose }) {
 
         {/* Tab content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'info'       && <InfoTab teacher={teacher} />}
+          {activeTab === 'info'       && <InfoTab teacher={teacher} onUpdated={onUpdated} isSuperAdmin={isSuperAdmin} />}
           {activeTab === 'attendance' && <AttendanceTab teacherId={teacher.id} />}
           {activeTab === 'classes'    && <ClassesTab teacherId={teacher.id} />}
           {activeTab === 'salary'     && <SalaryTab teacher={teacher} />}

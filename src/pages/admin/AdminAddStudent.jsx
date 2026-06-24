@@ -11,7 +11,7 @@ const CATEGORIES    = ['General', 'OBC', 'SC', 'ST', 'EWS'];
 
 const EMPTY_FORM = {
   // account
-  name: '', email: '', phone: '', password: '',
+  name: '', username: '', email: '', phone: '', password: '',
   // academic
   class_id: '', roll_number: '',
   admission_date: new Date().toISOString().split('T')[0],
@@ -30,6 +30,7 @@ const EMPTY_FORM = {
 
 const CSV_COLUMNS = [
   { key: 'name',           label: 'Name',           required: true,  example: 'Rahul Sharma' },
+  { key: 'username',       label: 'Admission No',   required: true,  example: '1524' },
   { key: 'email',          label: 'Email',          required: true,  example: 'rahul@school.com' },
   { key: 'phone',          label: 'Phone',                           example: '9876543210' },
   { key: 'class_name',     label: 'Class',          required: true,  example: '6' },
@@ -79,7 +80,8 @@ export default function AdminAddStudent() {
   };
 
   const validate = () => {
-    if (!form.name.trim())    return 'Student name is required';
+    if (!form.name.trim())     return 'Student name is required';
+    if (!form.username.trim()) return 'Admission number (login ID) is required';
     if (!form.email.trim())   return 'Email is required';
     if (!/\S+@\S+\.\S+/.test(form.email)) return 'Enter a valid email';
     if (!form.class_id)       return 'Please select a class';
@@ -120,7 +122,7 @@ export default function AdminAddStudent() {
     );
     if (!cls) throw new Error(`Class ${row.class_name}-${row.section} not found`);
     await studentService.addStudent({
-      name: row.name, email: row.email,
+      name: row.name, username: row.username, email: row.email,
       phone: row.phone || undefined,
       password: row.password || undefined,
       class_id: cls.id,
@@ -194,6 +196,10 @@ export default function AdminAddStudent() {
         <div className="bg-white border border-gray-200/80 rounded-xl p-7">
           <h3 className="font-display font-bold text-base mb-5 text-gray-900">Academic details</h3>
           <div className="grid md:grid-cols-3 gap-4">
+            <div>
+              <label className={labelCls}>Admission number <span className="text-red-400">*</span></label>
+              <input type="text" name="username" value={form.username} onChange={handleChange} placeholder="e.g. 1524 — student's login ID" className={inputCls} />
+            </div>
             <div>
               <label className={labelCls}>Class <span className="text-red-400">*</span></label>
               <select name="class_id" value={form.class_id} onChange={handleChange} className={inputCls} disabled={classesLoading}>
