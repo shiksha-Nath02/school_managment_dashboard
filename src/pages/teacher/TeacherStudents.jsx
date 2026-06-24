@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Download, Loader2, AlertCircle, CheckCircle2, X, RefreshCw, FolderOpen } from 'lucide-react';
+import { Search, Download, Loader2, AlertCircle, CheckCircle2, X, RefreshCw, FolderOpen, UserPlus } from 'lucide-react';
 import api from '../../services/api';
 import StudentProfileDrawer from '../../components/admin/StudentProfileDrawer';
 import StudentDocsTab from '../../components/admin/StudentDocsTab';
@@ -9,6 +9,92 @@ const STATUS_BADGE = {
   inactive: 'bg-red-100 text-red-600',
   promoted: 'bg-blue-100 text-blue-700',
 };
+
+const inp = 'w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-300 outline-none focus:border-teacher-400 focus:ring-2 focus:ring-teacher-500/10';
+const lbl = 'block text-xs font-semibold text-gray-500 mb-1';
+const EMPTY_ADD = { class_id: '', username: '', name: '', roll_number: '', date_of_birth: '', phone: '', father_name: '', mother_name: '', address: '' };
+
+// Defined at module scope (not inside the page component) so inputs don't remount
+// and lose focus on each keystroke.
+function AddStudentModal({ open, classes, onClose, onAdded, showToast }) {
+  const [form, setForm] = useState(EMPTY_ADD);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setForm({ ...EMPTY_ADD, class_id: classes.length === 1 ? String(classes[0].id) : '' });
+      setErr('');
+    }
+  }, [open, classes]);
+
+  if (!open) return null;
+
+  const ch = (e) => { setForm((p) => ({ ...p, [e.target.name]: e.target.value })); setErr(''); };
+
+  const submit = async () => {
+    if (!form.class_id) return setErr('Select a class');
+    if (!form.username.trim()) return setErr('Admission number is required');
+    if (!form.name.trim()) return setErr('Name is required');
+    if (!form.roll_number) return setErr('Roll number is required');
+    if (!form.date_of_birth) return setErr('Date of birth is required (used for the default password)');
+    setSaving(true); setErr('');
+    try {
+      await api.post('/teacher/students', {
+        ...form,
+        class_id: parseInt(form.class_id, 10),
+        roll_number: parseInt(form.roll_number, 10),
+      });
+      showToast('success', 'Student added');
+      onAdded();
+      onClose();
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Failed to add student');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <h3 className="font-display font-bold text-gray-900">Add Student</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="overflow-y-auto px-6 py-4 space-y-3">
+          <div>
+            <label className={lbl}>Class *</label>
+            <select name="class_id" value={form.class_id} onChange={ch} className={`${inp} bg-white`}>
+              <option value="">Select class</option>
+              {classes.map((c) => <option key={c.id} value={c.id}>Class {c.class_name} {c.section}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className={lbl}>Admission No *</label><input name="username" value={form.username} onChange={ch} placeholder="e.g. 1601" className={inp} /></div>
+            <div><label className={lbl}>Roll No *</label><input type="number" name="roll_number" value={form.roll_number} onChange={ch} min="1" className={inp} /></div>
+          </div>
+          <div><label className={lbl}>Full Name *</label><input name="name" value={form.name} onChange={ch} className={inp} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className={lbl}>Date of Birth *</label><input type="date" name="date_of_birth" value={form.date_of_birth} onChange={ch} className={inp} /></div>
+            <div><label className={lbl}>Phone</label><input name="phone" value={form.phone} onChange={ch} className={inp} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className={lbl}>Father's Name</label><input name="father_name" value={form.father_name} onChange={ch} className={inp} /></div>
+            <div><label className={lbl}>Mother's Name</label><input name="mother_name" value={form.mother_name} onChange={ch} className={inp} /></div>
+          </div>
+          <div><label className={lbl}>Address</label><textarea name="address" value={form.address} onChange={ch} rows={2} className={`${inp} resize-none`} /></div>
+          <p className="text-xs text-gray-400">Login = admission number. Default password = birth year + first 4 letters of name.</p>
+          {err && <p className="text-xs text-red-500">{err}</p>}
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
+          <button onClick={submit} disabled={saving} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-teacher-500 text-white rounded-xl text-sm font-semibold hover:bg-teacher-600 disabled:opacity-50 transition-all">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />} Add Student
+          </button>
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function TeacherStudents() {
   const [tab, setTab] = useState('list');
@@ -20,6 +106,7 @@ export default function TeacherStudents() {
   const [toast, setToast] = useState(null);
   const [profileStudent, setProfileStudent] = useState(null);
   const [canEditStudents, setCanEditStudents] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const showToast = useCallback((type, msg) => {
     setToast({ type, msg });
@@ -71,6 +158,14 @@ export default function TeacherStudents() {
 
   return (
     <div className="space-y-6">
+      <AddStudentModal
+        open={addOpen}
+        classes={classes}
+        onClose={() => setAddOpen(false)}
+        onAdded={fetchStudents}
+        showToast={showToast}
+      />
+
       <StudentProfileDrawer
         student={profileStudent}
         onClose={() => setProfileStudent(null)}
@@ -99,10 +194,18 @@ export default function TeacherStudents() {
           )}
         </div>
         {tab === 'list' && (
-          <button onClick={exportCsv} disabled={filteredStudents.length === 0}
-            className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 disabled:opacity-40 transition-all">
-            <Download size={15} /> Export CSV
-          </button>
+          <div className="flex items-center gap-3">
+            {canEditStudents && (
+              <button onClick={() => setAddOpen(true)}
+                className="flex items-center gap-2 bg-teacher-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-teacher-600 hover:-translate-y-0.5 transition-all shadow-lg shadow-teacher-500/20">
+                <UserPlus size={16} /> Add student
+              </button>
+            )}
+            <button onClick={exportCsv} disabled={filteredStudents.length === 0}
+              className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 disabled:opacity-40 transition-all">
+              <Download size={15} /> Export CSV
+            </button>
+          </div>
         )}
       </div>
 
