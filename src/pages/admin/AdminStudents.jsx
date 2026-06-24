@@ -89,7 +89,7 @@ export default function AdminStudents() {
       "Parents' PAN", 'Birth Certificate No', 'EWS/Category Cert. No',
     ];
     const rows = filteredStudents.map((s) => [
-      s.id, s.roll_number,
+      s.admission_number ?? s.id, s.roll_number,
       q(s.user?.name), q(s.user?.email), q(s.user?.phone || ''),
       q(s.class ? `Class ${s.class.class_name} ${s.class.section}` : ''),
       s.status,
@@ -297,7 +297,7 @@ export default function AdminStudents() {
                     onClick={() => setProfileStudent(s)}
                     className="hover:bg-brand-50/40 transition-colors cursor-pointer"
                   >
-                    <td className="px-6 py-3.5 font-mono text-xs font-bold text-brand-600">{s.id}</td>
+                    <td className="px-6 py-3.5 font-mono text-xs font-bold text-brand-600">{s.admission_number ?? s.id}</td>
                     <td className="px-4 py-3.5 font-mono text-xs text-gray-400">{s.roll_number}</td>
                     <td className="px-4 py-3.5 font-semibold text-gray-900">{s.user?.name || '—'}</td>
                     <td className="px-4 py-3.5 text-gray-600">

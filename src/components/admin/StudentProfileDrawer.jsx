@@ -105,7 +105,7 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
       </div>
 
       <dl>
-        {row('Admission No', student.id)}
+        {row('Admission No', student.admission_number ?? student.id)}
         {row('Full Name', u.name)}
         {row('Email', u.email)}
         {row('Phone', u.phone)}
@@ -508,7 +508,7 @@ export default function StudentProfileDrawer({ student: initialStudent, onClose,
           <div className="flex-1 min-w-0">
             <h2 className="font-display font-bold text-gray-900 truncate">{student.user?.name || 'Student'}</h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              {student.class ? `Class ${student.class.class_name} ${student.class.section}` : ''} · Roll #{student.roll_number} · Adm #{student.id}
+              {student.class ? `Class ${student.class.class_name} ${student.class.section}` : ''} · Roll #{student.roll_number} · Adm #{student.admission_number ?? student.id}
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors shrink-0">
