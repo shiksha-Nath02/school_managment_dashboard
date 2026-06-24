@@ -30,7 +30,7 @@ const EXTENDED_DEFAULTS = {
 
 // ── InfoTab ──────────────────────────────────────────────────────────────────
 
-function InfoTab({ student, onUpdated, readOnly }) {
+function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
   const [editing, setEditing]   = useState(false);
   const [form, setForm]         = useState({});
   const [saving, setSaving]     = useState(false);
@@ -66,7 +66,8 @@ function InfoTab({ student, onUpdated, readOnly }) {
     setSaving(true);
     setSaveErr('');
     try {
-      const res = await studentService.updateStudent(student.id, form);
+      const save = updateStudent || studentService.updateStudent;
+      const res = await save(student.id, form);
       setEditing(false);
       onUpdated?.(res.student || null);
     } catch (e) {
@@ -480,7 +481,7 @@ function Empty({ msg }) {
 
 // ── Main Drawer ───────────────────────────────────────────────────────────────
 
-export default function StudentProfileDrawer({ student: initialStudent, onClose, onUpdated, readOnly = false }) {
+export default function StudentProfileDrawer({ student: initialStudent, onClose, onUpdated, readOnly = false, updateStudent }) {
   const [activeTab, setActiveTab] = useState('info');
   const [student, setStudent] = useState(initialStudent);
 
@@ -527,7 +528,7 @@ export default function StudentProfileDrawer({ student: initialStudent, onClose,
 
         {/* Tab content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'info'       && <InfoTab student={student} onUpdated={handleUpdated} readOnly={readOnly} />}
+          {activeTab === 'info'       && <InfoTab student={student} onUpdated={handleUpdated} readOnly={readOnly} updateStudent={updateStudent} />}
           {activeTab === 'attendance' && <AttendanceTab studentId={student.id} />}
           {activeTab === 'marks'      && <MarksTab studentId={student.id} />}
           {activeTab === 'fees'       && <FeesTab studentId={student.id} />}

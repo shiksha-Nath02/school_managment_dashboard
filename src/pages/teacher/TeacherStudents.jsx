@@ -19,6 +19,7 @@ export default function TeacherStudents() {
   const [classFilter, setClassFilter] = useState('');
   const [toast, setToast] = useState(null);
   const [profileStudent, setProfileStudent] = useState(null);
+  const [canEditStudents, setCanEditStudents] = useState(false);
 
   const showToast = useCallback((type, msg) => {
     setToast({ type, msg });
@@ -32,6 +33,7 @@ export default function TeacherStudents() {
       if (classFilter) params.class_id = classFilter;
       const r = await api.get('/teacher/my-students', { params });
       setStudents(r.data.students || []);
+      setCanEditStudents(!!r.data.canEditStudents);
       if (!classFilter && r.data.classes?.length) setClasses(r.data.classes);
     } catch {
       showToast('error', 'Failed to load students');
@@ -72,7 +74,13 @@ export default function TeacherStudents() {
       <StudentProfileDrawer
         student={profileStudent}
         onClose={() => setProfileStudent(null)}
-        readOnly
+        readOnly={!canEditStudents}
+        updateStudent={async (id, data) => {
+          const res = await api.put(`/teacher/students/${id}`, data);
+          showToast('success', 'Student updated');
+          return res.data;
+        }}
+        onUpdated={fetchStudents}
       />
 
       {toast && (

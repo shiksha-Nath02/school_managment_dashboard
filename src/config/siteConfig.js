@@ -11,10 +11,12 @@
 
 import DEFAULT from '../schools/_default/config';
 import santrld from '../schools/santrldpublicschool.com/config';
+import idealradiant from '../schools/idealradiantpublicschool.com/config';
 import { PALETTES } from '../schools/_palettes';
 
 const SCHOOLS = {
   'santrldpublicschool.com': santrld,
+  'idealradiantpublicschool.com': idealradiant,
 };
 
 // Resolve the active school's config from the current hostname.

@@ -57,6 +57,10 @@ export default function AdminTeachers() {
       <TeacherProfileDrawer
         teacher={profileTeacher}
         onClose={() => setProfileTeacher(null)}
+        onUpdated={(updated) => {
+          fetchTeachers();
+          if (updated) setProfileTeacher(updated);
+        }}
       />
 
       {/* Reset password modal (super admin only) */}
