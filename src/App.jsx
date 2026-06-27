@@ -37,12 +37,10 @@ import {
   AdminFeeDues,
   AdminFeeClasswise,
   AdminSessionSetup,
-  AdminSalary,
   AdminProfit,
   AdminUniform,
   AdminBooks,
-  AdminStationery,
-  AdminPantry,
+  AdminExpenditure,
   AdminAddTeacher,
   AdminRemoveStudent,
 } from './pages/admin/AdminPages';
@@ -115,12 +113,14 @@ export default function App() {
         <Route path="fee-bulk" element={<AdminFeeBulk />} />
         <Route path="fee-dues" element={<AdminFeeDues />} />
         <Route path="fee-classwise" element={<AdminFeeClasswise />} />
-        <Route path="salary" element={<AdminSalary />} />
         <Route path="profit" element={<AdminProfit />} />
         <Route path="uniform" element={<AdminUniform />} />
         <Route path="books" element={<AdminBooks />} />
-        <Route path="stationery" element={<AdminStationery />} />
-        <Route path="pantry" element={<AdminPantry />} />
+        <Route path="expenditure" element={<AdminExpenditure />} />
+        {/* Old paths now merged into Expenditure */}
+        <Route path="stationery" element={<Navigate to="/admin/expenditure" replace />} />
+        <Route path="pantry" element={<Navigate to="/admin/expenditure" replace />} />
+        <Route path="salary" element={<Navigate to="/admin/expenditure" replace />} />
         <Route path="add-student" element={<AdminAddStudent />} />
         <Route path="add-teacher" element={<AdminAddTeacherPage />} />
         <Route path="remove-student" element={<AdminRemoveStudentPage />} />

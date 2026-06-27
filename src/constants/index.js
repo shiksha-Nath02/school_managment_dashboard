@@ -160,7 +160,6 @@ export const SIDEBAR_NAV = {
         { key: 'fee-bulk', label: 'Bulk Payment', icon: 'Banknote', path: '/admin/fee-bulk' },
         { key: 'fee-dues', label: 'Students with Dues', icon: 'AlertTriangle', path: '/admin/fee-dues' },
         { key: 'fee-classwise', label: 'Class-wise Report', icon: 'ClipboardList', path: '/admin/fee-classwise' },
-        { key: 'salary', label: 'Salary', icon: 'Banknote', path: '/admin/salary' },
         { key: 'profit', label: 'Profit', icon: 'TrendingUp', path: '/admin/profit' },
       ],
     },
@@ -169,8 +168,7 @@ export const SIDEBAR_NAV = {
       items: [
         { key: 'uniform', label: 'Uniform', icon: 'Shirt', path: '/admin/uniform' },
         { key: 'books', label: 'Books', icon: 'BookOpen', path: '/admin/books' },
-        { key: 'stationery', label: 'Stationery', icon: 'Pencil', path: '/admin/stationery' },
-        { key: 'pantry', label: 'Pantry', icon: 'UtensilsCrossed', path: '/admin/pantry' },
+        { key: 'expenditure', label: 'Expenditure', icon: 'Banknote', path: '/admin/expenditure' },
       ],
     },
     {

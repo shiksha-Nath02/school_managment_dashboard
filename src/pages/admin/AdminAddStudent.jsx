@@ -26,6 +26,7 @@ const EMPTY_FORM = {
   mother_name: '', mother_phone: '', mother_aadhaar: '',
   // documents
   parents_pan: '', birth_certificate_number: '', ews_certificate_number: '',
+  pen_number: '', apaar_id: '',
 };
 
 const CSV_COLUMNS = [
@@ -350,6 +351,14 @@ export default function AdminAddStudent() {
             <div>
               <label className={labelCls}>EWS / Category certificate number</label>
               <input type="text" name="ews_certificate_number" value={form.ews_certificate_number} onChange={handleChange} placeholder="Certificate number" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>PEN number</label>
+              <input type="text" name="pen_number" value={form.pen_number} onChange={handleChange} placeholder="Permanent Education Number" maxLength={20} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>APAAR ID</label>
+              <input type="text" name="apaar_id" value={form.apaar_id} onChange={handleChange} placeholder="APAAR / ABC ID" maxLength={20} className={inputCls} />
             </div>
           </div>
         </div>

@@ -13,6 +13,10 @@ const STATUS_BADGE = {
   promoted: 'bg-blue-100 text-blue-700',
 };
 
+const PAGE_SIZE = 25;
+// Class label without the "Class " prefix, e.g. "Nursery Ankur".
+const classLabel = (c) => (c ? `${c.class_name}${c.section ? ` ${c.section}` : ''}` : '—');
+
 export default function AdminStudents() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -25,6 +29,8 @@ export default function AdminStudents() {
   const [search, setSearch] = useState('');
   const [classFilter, setClassFilter] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [page, setPage] = useState(1);
   const [toast, setToast] = useState(null);
   const [confirmId, setConfirmId] = useState(null); // student id to remove
   const [profileStudent, setProfileStudent] = useState(null); // student object for drawer
@@ -39,7 +45,6 @@ export default function AdminStudents() {
     try {
       const params = {};
       if (classFilter) params.class_id = classFilter;
-      if (search) params.search = search;
       const data = await studentService.getStudents(params);
       setStudents(data.students || []);
     } catch {
@@ -47,16 +52,13 @@ export default function AdminStudents() {
     } finally {
       setLoading(false);
     }
-  }, [classFilter, search, showToast]);
+  }, [classFilter, showToast]);
 
   useEffect(() => {
     studentService.getClasses().then((d) => setClasses(d.classes || []));
   }, []);
 
-  useEffect(() => {
-    const t = setTimeout(fetchStudents, search ? 400 : 0);
-    return () => clearTimeout(t);
-  }, [fetchStudents, search]);
+  useEffect(() => { fetchStudents(); }, [fetchStudents]);
 
   const handleRemove = async () => {
     if (!confirmId) return;
@@ -72,9 +74,34 @@ export default function AdminStudents() {
   };
 
   const filteredStudents = useMemo(() => {
-    if (!filterCategory) return students;
-    return students.filter((s) => s.category === filterCategory);
-  }, [students, filterCategory]);
+    const q = search.trim().toLowerCase();
+    let list = students;
+    if (q) list = list.filter((s) =>
+      (s.user?.name || '').toLowerCase().includes(q) ||
+      String(s.admission_number ?? s.id).toLowerCase().includes(q));
+    if (filterCategory) list = list.filter((s) => s.category === filterCategory);
+    return [...list].sort((a, b) => {
+      if (sortBy === 'admission') {
+        return String(a.admission_number ?? a.id).localeCompare(String(b.admission_number ?? b.id), undefined, { numeric: true });
+      }
+      if (sortBy === 'class') {
+        const ca = `${a.class?.class_name ?? ''} ${a.class?.section ?? ''}`;
+        const cb = `${b.class?.class_name ?? ''} ${b.class?.section ?? ''}`;
+        return ca.localeCompare(cb, undefined, { numeric: true }) || (a.roll_number ?? 0) - (b.roll_number ?? 0);
+      }
+      return (a.user?.name ?? '').localeCompare(b.user?.name ?? '');
+    });
+  }, [students, search, filterCategory, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedStudents = useMemo(
+    () => filteredStudents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filteredStudents, currentPage],
+  );
+
+  // Reset to the first page whenever the result set changes.
+  useEffect(() => { setPage(1); }, [search, classFilter, filterCategory, sortBy]);
 
   const confirmStudent = students.find((s) => s.id === confirmId);
 
@@ -91,7 +118,7 @@ export default function AdminStudents() {
     const rows = filteredStudents.map((s) => [
       s.admission_number ?? s.id, s.roll_number,
       q(s.user?.name), q(s.user?.email), q(s.user?.phone || ''),
-      q(s.class ? `Class ${s.class.class_name} ${s.class.section}` : ''),
+      q(s.class ? classLabel(s.class) : ''),
       s.status,
       s.date_of_birth || '', s.blood_group || '', s.category || '',
       q(s.religion || ''), q(s.nationality || 'Indian'),
@@ -154,7 +181,7 @@ export default function AdminStudents() {
             {confirmStudent && (
               <p className="text-sm text-gray-600 bg-gray-50 rounded-xl px-4 py-3 mb-5">
                 <span className="font-semibold">{confirmStudent.user?.name}</span>
-                {' — '}Class {confirmStudent.class?.class_name}{confirmStudent.class?.section ? ` ${confirmStudent.class.section}` : ''}
+                {' — '}{classLabel(confirmStudent.class)}
               </p>
             )}
             <div className="flex gap-3">
@@ -227,7 +254,7 @@ export default function AdminStudents() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name..."
+            placeholder="Search by name or admission no..."
             className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-brand-400"
           />
           {search && (
@@ -244,7 +271,7 @@ export default function AdminStudents() {
         >
           <option value="">All classes</option>
           {classes.map((c) => (
-            <option key={c.id} value={c.id}>Class {c.class_name} {c.section}</option>
+            <option key={c.id} value={c.id}>{classLabel(c)}</option>
           ))}
         </select>
 
@@ -257,6 +284,16 @@ export default function AdminStudents() {
           {['General', 'OBC', 'SC', 'ST', 'EWS'].map((c) => (
             <option key={c} value={c}>{c}</option>
           ))}
+        </select>
+
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 focus:outline-none focus:border-brand-400"
+        >
+          <option value="name">Sort: Name (A–Z)</option>
+          <option value="admission">Sort: Admission No</option>
+          <option value="class">Sort: Class</option>
         </select>
 
         <button onClick={fetchStudents} className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-700 transition-colors">
@@ -284,14 +321,14 @@ export default function AdminStudents() {
                   <th className="px-4 py-3 text-left">Roll</th>
                   <th className="px-4 py-3 text-left">Name</th>
                   <th className="px-4 py-3 text-left">Class</th>
-                  <th className="px-4 py-3 text-left">Email</th>
+                  <th className="px-4 py-3 text-left">Category</th>
                   <th className="px-4 py-3 text-left">Phone</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-6 py-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredStudents.map((s) => (
+                {pagedStudents.map((s) => (
                   <tr
                     key={s.id}
                     onClick={() => setProfileStudent(s)}
@@ -300,11 +337,9 @@ export default function AdminStudents() {
                     <td className="px-6 py-3.5 font-mono text-xs font-bold text-brand-600">{s.admission_number ?? s.id}</td>
                     <td className="px-4 py-3.5 font-mono text-xs text-gray-400">{s.roll_number}</td>
                     <td className="px-4 py-3.5 font-semibold text-gray-900">{s.user?.name || '—'}</td>
-                    <td className="px-4 py-3.5 text-gray-600">
-                      {s.class ? `Class ${s.class.class_name} ${s.class.section}` : '—'}
-                    </td>
-                    <td className="px-4 py-3.5 text-gray-500">{s.user?.email || '—'}</td>
-                    <td className="px-4 py-3.5 text-gray-500">{s.user?.phone || '—'}</td>
+                    <td className="px-4 py-3.5 text-gray-600">{classLabel(s.class)}</td>
+                    <td className="px-4 py-3.5 text-gray-500">{s.category || '—'}</td>
+                    <td className="px-4 py-3.5 text-gray-500">{s.father_phone || '—'}</td>
                     <td className="px-4 py-3.5">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_BADGE[s.status] || 'bg-gray-100 text-gray-500'}`}>
                         {s.status}
@@ -337,6 +372,32 @@ export default function AdminStudents() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && filteredStudents.length > 0 && (
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <p className="text-sm text-gray-400">
+            Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredStudents.length)} of {filteredStudents.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              Previous
+            </button>
+            <span className="text-sm font-medium text-gray-500 px-2">Page {currentPage} of {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
       </>}
     </div>
   );
