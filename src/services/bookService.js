@@ -8,6 +8,7 @@ const svc = {
 
   getTransactions:  (search)   => api.get('/admin/books/transactions', { params: search ? { search } : {} }).then((r) => r.data),
   sellItem:         (data)     => api.post('/admin/books/transactions', data).then((r) => r.data),
+  lookupStudent:    (admission_number) => api.get('/admin/student-lookup', { params: { admission_number } }).then((r) => r.data),
   addPayment:       (id, data) => api.post(`/admin/books/transactions/${id}/payment`, data).then((r) => r.data),
   deleteTransaction:(id)       => api.delete(`/admin/books/transactions/${id}`).then((r) => r.data),
 };

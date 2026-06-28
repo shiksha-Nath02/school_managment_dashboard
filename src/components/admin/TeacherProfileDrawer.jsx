@@ -5,6 +5,7 @@ import {
   Pencil, CheckCircle2, ShieldCheck, Eye, EyeOff,
 } from 'lucide-react';
 import teacherService from '../../services/teacherService';
+import staffService from '../../services/staffService';
 import { useAuth } from '../../contexts/AuthContext';
 import { TEACHER_GROUPS, TEACHER_FIELD_NAMES, buildTeacherPayload } from '../../constants/teacherFields';
 
@@ -408,7 +409,17 @@ function ClassesTab({ teacherId }) {
 
 function SalaryTab({ teacher }) {
   const salary = parseFloat(teacher.salary || 0);
-  const annualCTC = salary * 12;
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    staffService.getSalaryHistory({ teacher_id: teacher.id })
+      .then(setData).catch(() => setData(null)).finally(() => setLoading(false));
+  }, [teacher.id]);
+
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
+  const payments = data?.payments || [];
 
   return (
     <div className="space-y-4">
@@ -418,14 +429,33 @@ function SalaryTab({ teacher }) {
           <p className="text-2xl font-bold text-emerald-700 mt-1">{salary > 0 ? money(salary) : '—'}</p>
         </div>
         <div className="bg-gray-50 rounded-xl p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Annual CTC</p>
-          <p className="text-2xl font-bold text-gray-700 mt-1">{annualCTC > 0 ? money(annualCTC) : '—'}</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Paid</p>
+          <p className="text-2xl font-bold text-gray-700 mt-1">{money(data?.totalPaid || 0)}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-sm text-amber-700">
-        <IndianRupee className="w-4 h-4 shrink-0" />
-        Salary payment history will appear here once salary disbursements are recorded.
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Payment history</p>
+        {loading ? <Spinner /> : payments.length === 0 ? (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-sm text-amber-700">
+            <IndianRupee className="w-4 h-4 shrink-0" />
+            No salary payments recorded yet. Pay salary from the Expenditure tab (reason: Salary).
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {payments.map((p) => (
+              <div key={p.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">{fmtDate(p.date)}</p>
+                  {p.deduction > 0 && (
+                    <p className="text-xs text-red-400 mt-0.5">Penalty {money(p.deduction)}{p.gross ? ` · of ${money(p.gross)}` : ''}</p>
+                  )}
+                </div>
+                <p className="text-sm font-bold text-emerald-600">{money(p.amount)}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

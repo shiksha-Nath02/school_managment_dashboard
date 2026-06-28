@@ -113,6 +113,7 @@ export const SIDEBAR_NAV = {
       title: 'Finance',
       items: [
         { key: 'fee-history', label: 'Fee History', icon: 'Receipt', path: '/student/fee-history' },
+        { key: 'purchases', label: 'My Purchases', icon: 'ShoppingBag', path: '/student/purchases' },
       ],
     },
   ],
@@ -144,6 +145,7 @@ export const SIDEBAR_NAV = {
         { key: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', path: '/admin' },
         { key: 'students', label: 'Students', icon: 'GraduationCap', path: '/admin/students' },
         { key: 'teachers', label: 'Teachers', icon: 'BookOpen', path: '/admin/teachers' },
+        { key: 'enquiries', label: 'Enquiries', icon: 'Inbox', path: '/admin/enquiries' },
       ],
     },
     {
@@ -161,6 +163,7 @@ export const SIDEBAR_NAV = {
         { key: 'fee-dues', label: 'Students with Dues', icon: 'AlertTriangle', path: '/admin/fee-dues' },
         { key: 'fee-classwise', label: 'Class-wise Report', icon: 'ClipboardList', path: '/admin/fee-classwise' },
         { key: 'profit', label: 'Profit', icon: 'TrendingUp', path: '/admin/profit' },
+        { key: 'staff', label: 'Staff', icon: 'Users', path: '/admin/staff' },
       ],
     },
     {

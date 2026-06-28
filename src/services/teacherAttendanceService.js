@@ -3,6 +3,7 @@ import api from './api';
 const svc = {
   // Teacher's own attendance view
   getMyAttendance: (month, year) => api.get('/teacher/my-attendance', { params: { month, year } }).then((r) => r.data),
+  getMySelfAttendanceSetting: () => api.get('/teacher/self-attendance-setting').then((r) => r.data),
   selfCheckIn: (image_base64) => api.post('/teacher/self-checkin', { image_base64 }).then((r) => r.data),
   selfCheckOut: (image_base64) => api.post('/teacher/self-checkout', { image_base64 }).then((r) => r.data),
 

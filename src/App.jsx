@@ -16,6 +16,7 @@ import StudentClassTasks from './pages/student/StudentClassTasks';
 import {
   StudentResults,
   StudentFeeHistory,
+  StudentPurchases,
 } from './pages/student/StudentPages';
 
 // Teacher pages
@@ -45,6 +46,8 @@ import {
   AdminRemoveStudent,
 } from './pages/admin/AdminPages';
 import AdminAddStudent from './pages/admin/AdminAddStudent';
+import AdminStaff from './pages/admin/AdminStaff';
+import AdminEnquiries from './pages/admin/AdminEnquiries';
 import AdminTeacherAttendanceReport from './pages/admin/AdminTeacherAttendanceReport';
 import AdminFeeBulk from './pages/admin/AdminFeeBulk';
 import AdminStudentsPage from './pages/admin/AdminStudents';
@@ -75,6 +78,7 @@ export default function App() {
         <Route path="class-tasks" element={<StudentClassTasks />} />
         <Route path="attendance" element={<StudentAttendance />} />
         <Route path="fee-history" element={<StudentFeeHistory />} />
+        <Route path="purchases" element={<StudentPurchases />} />
       </Route>
 
       {/* ===== TEACHER DASHBOARD ===== */}
@@ -117,6 +121,8 @@ export default function App() {
         <Route path="uniform" element={<AdminUniform />} />
         <Route path="books" element={<AdminBooks />} />
         <Route path="expenditure" element={<AdminExpenditure />} />
+        <Route path="staff" element={<AdminStaff />} />
+        <Route path="enquiries" element={<AdminEnquiries />} />
         {/* Old paths now merged into Expenditure */}
         <Route path="stationery" element={<Navigate to="/admin/expenditure" replace />} />
         <Route path="pantry" element={<Navigate to="/admin/expenditure" replace />} />

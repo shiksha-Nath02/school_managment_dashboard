@@ -9,7 +9,7 @@ import * as Icons from 'lucide-react';
 // Nav items only the super admin may see (regular admin loses these tabs).
 const SUPERADMIN_ONLY_KEYS = ['session', 'profit'];
 
-export default function Sidebar({ role }) {
+export default function Sidebar({ role, open = false, onClose = () => {} }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -36,6 +36,9 @@ export default function Sidebar({ role }) {
     navigate('/login');
   };
 
+  // Navigate, then close the mobile drawer so the page is visible.
+  const go = (path) => { navigate(path); onClose(); };
+
   // Resolve icon component from lucide by name
   const getIcon = (iconName) => {
     const IconComp = Icons[iconName];
@@ -56,10 +59,27 @@ export default function Sidebar({ role }) {
   };
 
   return (
-    <aside className="w-[260px] bg-white border-r border-gray-200/80 fixed top-0 left-0 bottom-0 flex flex-col z-50 overflow-y-auto">
-      {/* Logo */}
-      <div className="px-5 pt-6 pb-2">
+    <>
+      {/* Mobile backdrop */}
+      <div
+        onClick={onClose}
+        className={`fixed inset-0 bg-black/40 z-40 lg:hidden transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      />
+
+      <aside
+        className={`w-[260px] bg-white border-r border-gray-200/80 fixed top-0 left-0 bottom-0 flex flex-col z-50 overflow-y-auto
+          transform transition-transform duration-200 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+      {/* Logo + close (minimise) arrow on mobile */}
+      <div className="px-5 pt-6 pb-2 flex items-center justify-between">
         <Logo size="small" linkTo={`/${role}`} />
+        <button
+          onClick={onClose}
+          aria-label="Close menu"
+          className="lg:hidden text-gray-400 hover:text-gray-600 p-1 -mr-1"
+        >
+          <Icons.ChevronLeft size={22} />
+        </button>
       </div>
 
       {/* Role badge */}
@@ -82,7 +102,7 @@ export default function Sidebar({ role }) {
               {section.items.map((item) => (
                 <button
                   key={item.key}
-                  onClick={() => navigate(item.path)}
+                  onClick={() => go(item.path)}
                   className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all text-left cursor-pointer
                     ${isActive(item.path)
                       ? activeClass[role]
@@ -123,6 +143,7 @@ export default function Sidebar({ role }) {
         onClose={() => setShowChangePassword(false)}
         btnClass={config.btnClass}
       />
-    </aside>
+      </aside>
+    </>
   );
 }
