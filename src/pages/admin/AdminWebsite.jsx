@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Upload, Trash2, Loader2, CheckCircle2, AlertCircle, Image as ImageIcon,
-  Megaphone, FileText, ExternalLink,
+  Megaphone, FileText, ExternalLink, FolderOpen,
 } from 'lucide-react';
 import galleryService from '../../services/galleryService';
 import circularService from '../../services/circularService';
 
+// Suggested folder names (you can also type any custom folder).
 const GALLERY_CATEGORIES = ['campus', 'classroom', 'sports', 'events', 'library', 'activities'];
 
 export default function AdminWebsite() {
@@ -55,7 +56,7 @@ export default function AdminWebsite() {
 function GalleryManager({ showToast }) {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState(GALLERY_CATEGORIES[0]);
+  const [category, setCategory] = useState('');
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
@@ -74,16 +75,30 @@ function GalleryManager({ showToast }) {
 
   useEffect(() => { fetch(); }, [fetch]);
 
+  // Existing folder names (from loaded images) + suggestions, for the datalist.
+  const folderOptions = useMemo(() => {
+    const set = new Set([...GALLERY_CATEGORIES, ...images.map((g) => g.category)]);
+    return [...set].sort();
+  }, [images]);
+
+  // Group images by folder for display.
+  const groups = useMemo(() => {
+    const m = {};
+    for (const g of images) (m[g.category] = m[g.category] || []).push(g);
+    return Object.entries(m).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [images]);
+
   const handleUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
     e.target.value = '';
+    if (!files.length) return;
+    if (!category.trim()) { showToast('error', 'Enter a folder name first'); return; }
     setUploading(true);
     try {
-      const r = await galleryService.upload(category, file, caption);
-      setImages((prev) => [r.data.image, ...prev]);
+      const r = await galleryService.upload(category.trim(), files, caption);
+      setImages((prev) => [...(r.data.images || []), ...prev]);
       setCaption('');
-      showToast('success', 'Image uploaded');
+      showToast('success', `${(r.data.images || []).length} image(s) uploaded to "${category.trim()}"`);
     } catch (err) {
       showToast('error', err.response?.data?.message || 'Upload failed');
     } finally {
@@ -106,14 +121,17 @@ function GalleryManager({ showToast }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end gap-3 bg-white border border-gray-200 rounded-2xl p-4">
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Category</label>
-          <select
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Folder name</label>
+          <input
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm capitalize"
-          >
-            {GALLERY_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+            list="gallery-folders"
+            placeholder="e.g. Annual Day 2026"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-48"
+          />
+          <datalist id="gallery-folders">
+            {folderOptions.map((c) => <option key={c} value={c} />)}
+          </datalist>
         </div>
         <div className="flex-1 min-w-[180px]">
           <label className="block text-xs font-semibold text-gray-500 mb-1">Caption (optional)</label>
@@ -124,14 +142,14 @@ function GalleryManager({ showToast }) {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
           />
         </div>
-        <input type="file" accept="image/jpeg,image/png,image/jpg" className="hidden" ref={fileRef} onChange={handleUpload} />
+        <input type="file" accept="image/jpeg,image/png,image/jpg" multiple className="hidden" ref={fileRef} onChange={handleUpload} />
         <button
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
           className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
         >
           {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-          {uploading ? 'Uploading…' : 'Upload Image'}
+          {uploading ? 'Uploading…' : 'Upload Images'}
         </button>
       </div>
 
@@ -140,20 +158,33 @@ function GalleryManager({ showToast }) {
       ) : images.length === 0 ? (
         <p className="text-center text-gray-400 text-sm py-16">No gallery images yet.</p>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {images.map((g) => (
-            <div key={g.id} className="group relative aspect-[4/3] rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-              <img src={g.url} alt={g.caption || g.category} className="w-full h-full object-cover" />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                <span className="text-white text-[11px] font-medium capitalize">{g.caption || g.category}</span>
+        <div className="space-y-6">
+          {groups.map(([folder, imgs]) => (
+            <div key={folder}>
+              <div className="flex items-center gap-2 mb-2 text-gray-700">
+                <FolderOpen className="w-4 h-4 text-brand-500" />
+                <span className="text-sm font-semibold capitalize">{folder}</span>
+                <span className="text-xs text-gray-400">({imgs.length})</span>
               </div>
-              <button
-                onClick={() => handleDelete(g.id)}
-                title="Delete"
-                className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {imgs.map((g) => (
+                  <div key={g.id} className="group relative aspect-[4/3] rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                    <img src={g.url} alt={g.caption || g.category} className="w-full h-full object-cover" />
+                    {g.caption && (
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                        <span className="text-white text-[11px] font-medium">{g.caption}</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleDelete(g.id)}
+                      title="Delete"
+                      className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
