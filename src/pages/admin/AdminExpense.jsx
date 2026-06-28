@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Trash2, Loader2, CheckCircle2, AlertCircle, X, IndianRupee, Download, Upload } from 'lucide-react';
 import svc from '@/services/expenseService';
+import staffSvc from '@/services/staffService';
 import CsvModal from '@/components/common/CsvModal';
 
 // Expenditure reasons. The key is the stored category; label/icon are for display.
@@ -9,6 +10,7 @@ const REASONS = [
   { key: 'pantry',     label: 'Pantry',     icon: '🍽️' },
   { key: 'inventory',  label: 'Inventory',  icon: '📦' },
   { key: 'salary',     label: 'Salary',     icon: '💰' },
+  { key: 'other',      label: 'Others',     icon: '📝' },
 ];
 const REASON_LABEL = Object.fromEntries(REASONS.map((r) => [r.key, r.label]));
 
@@ -32,9 +34,10 @@ export default function AdminExpenditure() {
   const [loading, setLoading]   = useState(true);
   const [modal, setModal]       = useState(false);
   const [csvOpen, setCsvOpen]   = useState(false);
-  const [form, setForm]         = useState({ reason: 'stationary', description: '', amount: '', date: today() });
+  const [form, setForm]         = useState({ reason: 'stationary', description: '', amount: '', date: today(), payeeKey: '', gross: '', penalty: '' });
   const [saving, setSaving]     = useState(false);
   const [toast, setToast]       = useState(null);
+  const [payees, setPayees]     = useState([]);
 
   // ── filters
   const [filterReason, setFilterReason] = useState('');
@@ -60,6 +63,7 @@ export default function AdminExpenditure() {
   }, [showToast]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { staffSvc.getSalaryPayees().then((d) => setPayees(d.payees || [])).catch(() => {}); }, []);
 
   // ── client-side filter (reason + date)
   const filteredExpenses = useMemo(() => expenses.filter((e) => {
@@ -80,17 +84,44 @@ export default function AdminExpenditure() {
   useEffect(() => { setPage(1); }, [filterReason, filterFrom, filterTo]);
 
   const openModal = () => {
-    setForm({ reason: 'stationary', description: '', amount: '', date: today() });
+    setForm({ reason: 'stationary', description: '', amount: '', date: today(), payeeKey: '', gross: '', penalty: '' });
     setModal(true);
+  };
+
+  const isSalary = form.reason === 'salary';
+  const selectedPayee = payees.find((p) => `${p.type}:${p.id}` === form.payeeKey) || null;
+  const finalAmount = Math.max(0, (parseFloat(form.gross) || 0) - (parseFloat(form.penalty) || 0));
+
+  // Picking a payee pre-fills their configured salary.
+  const onPayeeChange = (key) => {
+    const p = payees.find((x) => `${x.type}:${x.id}` === key) || null;
+    setForm((f) => ({ ...f, payeeKey: key, gross: p && p.salary != null ? String(p.salary) : f.gross }));
   };
 
   const handleAdd = async () => {
     if (!form.reason) return showToast('error', 'Reason is required');
-    if (!form.description?.trim()) return showToast('error', 'Description is required');
-    if (!form.amount || parseFloat(form.amount) <= 0) return showToast('error', 'Enter a valid amount');
     setSaving(true);
     try {
-      await svc.addExpense({ category: form.reason, description: form.description.trim(), amount: parseFloat(form.amount), date: form.date });
+      let payload;
+      if (isSalary) {
+        if (!selectedPayee) { setSaving(false); return showToast('error', 'Select a teacher or staff member'); }
+        if (!(parseFloat(form.gross) > 0)) { setSaving(false); return showToast('error', 'Enter the salary amount'); }
+        payload = {
+          category: 'salary',
+          date: form.date,
+          amount: finalAmount,
+          gross_amount: parseFloat(form.gross) || 0,
+          deduction: parseFloat(form.penalty) || 0,
+          teacher_id: selectedPayee.type === 'teacher' ? selectedPayee.id : undefined,
+          staff_id: selectedPayee.type === 'staff' ? selectedPayee.id : undefined,
+          description: `${selectedPayee.name}${parseFloat(form.penalty) > 0 ? ` (penalty ₹${form.penalty})` : ''}`,
+        };
+      } else {
+        if (!form.description?.trim()) { setSaving(false); return showToast('error', 'Description is required'); }
+        if (!form.amount || parseFloat(form.amount) <= 0) { setSaving(false); return showToast('error', 'Enter a valid amount'); }
+        payload = { category: form.reason, description: form.description.trim(), amount: parseFloat(form.amount), date: form.date };
+      }
+      await svc.addExpense(payload);
       setModal(false);
       load();
       showToast('success', 'Expense added');
@@ -279,21 +310,63 @@ export default function AdminExpenditure() {
                   {REASONS.map((r) => <option key={r.key} value={r.key}>{r.icon} {r.label}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Description <span className="text-red-400">*</span></label>
-                <input type="text" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="e.g. A4 paper reams / June salary — Ms. Priya" className={inputCls} autoFocus />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Amount (₹) <span className="text-red-400">*</span></label>
-                  <input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} placeholder="0.00" className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date</label>
-                  <input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className={inputCls} />
-                </div>
-              </div>
+              {isSalary ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Teacher / Staff <span className="text-red-400">*</span></label>
+                    <select value={form.payeeKey} onChange={(e) => onPayeeChange(e.target.value)} className={inputCls} autoFocus>
+                      <option value="">— Select —</option>
+                      <optgroup label="Teachers">
+                        {payees.filter((p) => p.type === 'teacher').map((p) => (
+                          <option key={`teacher:${p.id}`} value={`teacher:${p.id}`}>{p.name}{p.designation ? ` (${p.designation})` : ''}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Staff">
+                        {payees.filter((p) => p.type === 'staff').map((p) => (
+                          <option key={`staff:${p.id}`} value={`staff:${p.id}`}>{p.name}{p.designation ? ` (${p.designation})` : ''}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                    {payees.length === 0 && <p className="mt-1 text-xs text-amber-600">No teachers/staff found. Add staff in the Staff tab.</p>}
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Salary (₹)</label>
+                      <input type="number" min="0" step="0.01" value={form.gross} onChange={(e) => setForm((f) => ({ ...f, gross: e.target.value }))} placeholder="0.00" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Penalty (₹)</label>
+                      <input type="number" min="0" step="0.01" value={form.penalty} onChange={(e) => setForm((f) => ({ ...f, penalty: e.target.value }))} placeholder="0.00" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Final (₹)</label>
+                      <input type="text" value={finalAmount.toLocaleString('en-IN')} readOnly className={`${inputCls} bg-gray-50 font-bold`} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date</label>
+                    <input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className={inputCls} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Description <span className="text-red-400">*</span></label>
+                    <input type="text" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                      placeholder="e.g. A4 paper reams" className={inputCls} autoFocus />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Amount (₹) <span className="text-red-400">*</span></label>
+                      <input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} placeholder="0.00" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date</label>
+                      <input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className={inputCls} />
+                    </div>
+                  </div>
+                </>
+              )}
               <div className="flex gap-3 pt-1">
                 <button onClick={handleAdd} disabled={saving}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 disabled:opacity-50 transition-all">
