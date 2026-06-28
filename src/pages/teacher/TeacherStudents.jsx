@@ -12,7 +12,7 @@ const STATUS_BADGE = {
 
 const inp = 'w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-300 outline-none focus:border-teacher-400 focus:ring-2 focus:ring-teacher-500/10';
 const lbl = 'block text-xs font-semibold text-gray-500 mb-1';
-const EMPTY_ADD = { class_id: '', username: '', name: '', roll_number: '', date_of_birth: '', phone: '', father_name: '', mother_name: '', address: '' };
+const EMPTY_ADD = { class_id: '', username: '', name: '', roll_number: '', date_of_birth: '', phone: '', father_name: '', mother_name: '', address: '', pen_number: '', apaar_id: '' };
 
 // Defined at module scope (not inside the page component) so inputs don't remount
 // and lose focus on each keystroke.
@@ -82,6 +82,10 @@ function AddStudentModal({ open, classes, onClose, onAdded, showToast }) {
             <div><label className={lbl}>Mother's Name</label><input name="mother_name" value={form.mother_name} onChange={ch} className={inp} /></div>
           </div>
           <div><label className={lbl}>Address</label><textarea name="address" value={form.address} onChange={ch} rows={2} className={`${inp} resize-none`} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className={lbl}>PEN Number</label><input name="pen_number" value={form.pen_number} onChange={ch} maxLength={20} className={inp} /></div>
+            <div><label className={lbl}>APAAR ID</label><input name="apaar_id" value={form.apaar_id} onChange={ch} maxLength={20} className={inp} /></div>
+          </div>
           <p className="text-xs text-gray-400">Login = admission number. Default password = birth year + first 4 letters of name.</p>
           {err && <p className="text-xs text-red-500">{err}</p>}
         </div>

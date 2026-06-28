@@ -21,12 +21,19 @@ const inp = 'w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gra
 const sel = `${inp} bg-white`;
 
 const EXTENDED_DEFAULTS = {
+  // identity & academic
+  name: '', email: '', phone: '',
+  admission_number: '', roll_number: '', date_of_birth: '', admission_date: '', status: 'active',
+  pen_number: '', apaar_id: '',
   aadhaar_number: '', father_name: '', father_phone: '', father_aadhaar: '',
   mother_name: '', mother_phone: '', mother_aadhaar: '', parents_pan: '',
   category: '', religion: '', nationality: 'Indian', blood_group: '',
   birth_certificate_number: '', ews_certificate_number: '',
   address: '', city: '', state: '', pincode: '',
 };
+
+// DB dates arrive as ISO datetimes; <input type="date"> needs YYYY-MM-DD.
+const dateOnly = (v) => (v ? String(v).slice(0, 10) : '');
 
 // ── InfoTab ──────────────────────────────────────────────────────────────────
 
@@ -39,6 +46,16 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
   const openEdit = () => {
     setForm({
       ...EXTENDED_DEFAULTS,
+      name:                     student.user?.name               || '',
+      email:                    student.user?.email              || '',
+      phone:                    student.user?.phone              || '',
+      admission_number:         student.admission_number         || '',
+      roll_number:              student.roll_number ?? '',
+      date_of_birth:            dateOnly(student.date_of_birth),
+      admission_date:           dateOnly(student.admission_date),
+      status:                   student.status                   || 'active',
+      pen_number:               student.pen_number               || '',
+      apaar_id:                 student.apaar_id                 || '',
       aadhaar_number:           student.aadhaar_number           || '',
       father_name:              student.father_name              || '',
       father_phone:             student.father_phone             || '',
@@ -67,7 +84,15 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
     setSaveErr('');
     try {
       const save = updateStudent || studentService.updateStudent;
-      const res = await save(student.id, form);
+      // Coerce empty optional fields so the server doesn't try to write '' into a
+      // DATE column or hit the unique-email constraint with an empty string.
+      const payload = {
+        ...form,
+        email: form.email || null,
+        date_of_birth: form.date_of_birth || null,
+        admission_date: form.admission_date || null,
+      };
+      const res = await save(student.id, payload);
       setEditing(false);
       onUpdated?.(res.student || null);
     } catch (e) {
@@ -132,6 +157,8 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
         {row("Parents' PAN", student.parents_pan)}
         {row('Birth Cert. No', student.birth_certificate_number)}
         {row('EWS/Category Cert.', student.ews_certificate_number)}
+        {row('PEN Number', student.pen_number)}
+        {row('APAAR ID', student.apaar_id)}
       </dl>
 
       {/* Edit modal */}
@@ -144,8 +171,26 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
             </div>
 
             <div className="overflow-y-auto px-6 py-4 space-y-4">
+              {/* Identity & Academic */}
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Identity & Academic</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2"><label className="text-xs text-gray-500 mb-1 block">Full Name</label><input value={form.name} onChange={f('name')} className={inp} /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">Admission No <span className="text-gray-400">(login ID)</span></label><input value={form.admission_number} onChange={f('admission_number')} className={inp} /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">Roll No</label><input type="number" value={form.roll_number} onChange={f('roll_number')} min="1" className={inp} /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">Date of Birth</label><input type="date" value={form.date_of_birth} onChange={f('date_of_birth')} className={inp} /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">Admission Date</label><input type="date" value={form.admission_date} onChange={f('admission_date')} className={inp} /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">Status</label>
+                  <select value={form.status} onChange={f('status')} className={sel}>
+                    {['active', 'inactive', 'promoted'].map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div><label className="text-xs text-gray-500 mb-1 block">Phone</label><input value={form.phone} onChange={f('phone')} className={inp} /></div>
+                <div className="col-span-2"><label className="text-xs text-gray-500 mb-1 block">Email</label><input type="email" value={form.email} onChange={f('email')} className={inp} /></div>
+              </div>
+              <p className="text-[11px] text-amber-600 bg-amber-50 rounded-lg px-3 py-2">Changing the admission number also changes the student's login username.</p>
+
               {/* Personal */}
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Personal</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pt-2">Personal</p>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="text-xs text-gray-500 mb-1 block">Aadhaar No</label><input value={form.aadhaar_number} onChange={f('aadhaar_number')} maxLength={12} placeholder="12-digit" className={inp} /></div>
                 <div><label className="text-xs text-gray-500 mb-1 block">Blood Group</label>
@@ -198,6 +243,8 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
                 <div><label className="text-xs text-gray-500 mb-1 block">Parents' PAN</label><input value={form.parents_pan} onChange={f('parents_pan')} maxLength={10} className={inp} /></div>
                 <div><label className="text-xs text-gray-500 mb-1 block">Birth Certificate No</label><input value={form.birth_certificate_number} onChange={f('birth_certificate_number')} className={inp} /></div>
                 <div className="col-span-2"><label className="text-xs text-gray-500 mb-1 block">EWS / Category Certificate No</label><input value={form.ews_certificate_number} onChange={f('ews_certificate_number')} className={inp} /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">PEN Number</label><input value={form.pen_number} onChange={f('pen_number')} maxLength={20} className={inp} /></div>
+                <div><label className="text-xs text-gray-500 mb-1 block">APAAR ID</label><input value={form.apaar_id} onChange={f('apaar_id')} maxLength={20} className={inp} /></div>
               </div>
 
               {saveErr && <p className="text-xs text-red-500">{saveErr}</p>}

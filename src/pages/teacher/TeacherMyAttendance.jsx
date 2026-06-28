@@ -75,7 +75,7 @@ export default function TeacherMyAttendance() {
 
   useEffect(() => {
     // Fetch self-attendance setting once on mount
-    svc.getSelfAttendanceSetting()
+    svc.getMySelfAttendanceSetting()
       .then((d) => setSelfEnabled(d.enabled || false))
       .catch(console.error);
   }, []);

@@ -45,6 +45,7 @@ export default function AdminBooks() {
   const [sellModal, setSellModal]   = useState(false);
   const [sellForm, setSellForm]     = useState({ student_name: '', father_phone: '', admission_number: '', item_id: '', quantity: 1, amount_paying: '' });
   const [sellSaving, setSellSaving] = useState(false);
+  const [matched, setMatched]       = useState(null); // null=not checked, false=no match, object=found
 
   // ── payment modal
   const [payModal, setPayModal]   = useState(null);
@@ -126,6 +127,25 @@ export default function AdminBooks() {
   const toPay     = selectedItem ? parseFloat(selectedItem.price) * (parseInt(sellForm.quantity, 10) || 1) : 0;
   const payingNow = parseFloat(sellForm.amount_paying) || 0;
   const leftNow   = Math.max(0, toPay - payingNow);
+
+  // Look up the student by admission number and auto-fill name + father's phone.
+  const lookupStudentDetails = async () => {
+    const adm = sellForm.admission_number.trim();
+    if (!adm) { setMatched(null); return; }
+    try {
+      const { student } = await svc.lookupStudent(adm);
+      if (student) {
+        setMatched(student);
+        setSellForm((f) => ({
+          ...f,
+          student_name: student.name || f.student_name,
+          father_phone: student.fatherPhone || f.father_phone,
+        }));
+      } else {
+        setMatched(false);
+      }
+    } catch { setMatched(null); }
+  };
 
   const handleSell = async () => {
     if (!sellForm.student_name || !sellForm.item_id) return showToast('error', 'Student name and book are required');
@@ -316,7 +336,7 @@ export default function AdminBooks() {
                   <Download className="w-4 h-4" /> Export CSV
                 </button>
                 <button
-                  onClick={() => { setSellForm({ student_name: '', father_phone: '', admission_number: '', item_id: '', quantity: 1, amount_paying: '' }); setSellModal(true); }}
+                  onClick={() => { setSellForm({ student_name: '', father_phone: '', admission_number: '', item_id: '', quantity: 1, amount_paying: '' }); setMatched(null); setSellModal(true); }}
                   className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-all"
                 >
                   <ShoppingCart className="w-4 h-4" /> Sell Book
@@ -470,7 +490,12 @@ export default function AdminBooks() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Admission Number</label>
-                  <input value={sellForm.admission_number} onChange={(e) => setSellForm((f) => ({ ...f, admission_number: e.target.value }))} placeholder="ADM-001" className={inputCls} />
+                  <input value={sellForm.admission_number}
+                    onChange={(e) => { setSellForm((f) => ({ ...f, admission_number: e.target.value })); setMatched(null); }}
+                    onBlur={lookupStudentDetails}
+                    placeholder="Type admission no, then Tab" className={inputCls} />
+                  {matched && <p className="mt-1 text-xs text-emerald-600">✓ {matched.name}{matched.className ? ` · ${matched.className}` : ''}</p>}
+                  {matched === false && <p className="mt-1 text-xs text-amber-600">No student matched — sale will be unlinked.</p>}
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
