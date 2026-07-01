@@ -48,7 +48,8 @@ const DEFAULT = {
       'A short, welcoming sentence about your school goes here — what you stand for and what makes you special. Replace this placeholder text later.',
     primaryCta: { label: 'Apply for Admission', href: '#contact' },
     secondaryCta: { label: 'Explore Academics', href: '#academics' },
-    image: '', // optional S3 URL — used as the full-bleed banner by image-rich layouts (e.g. 'heritage')
+    image: '',    // single S3 URL — fallback when images[] is empty
+    images: [],   // S3 URLs for the hero slideshow (cycles every 5 s); overrides image
   },
 
   // ---- Quick stats strip -------------------------------------------------
@@ -135,6 +136,36 @@ const DEFAULT = {
     instagram: '',
     youtube: '',
   },
+
+  // ---- Our Story section -------------------------------------------------
+  story: {
+    kicker: 'Our Story',
+    heading: 'A Tradition of Excellence',
+    subheading: 'Discover What Makes Us Special',
+    body: 'Placeholder school story — replace with your real history, vision, and achievements. Tell prospective parents and students what makes your school unique.',
+    image: '', // optional S3 URL for a campus photo shown beside the text
+  },
+
+  // ---- Principal's Message -----------------------------------------------
+  principal: {
+    name: 'Principal Name',
+    designation: 'Principal',
+    message: 'A welcoming message from the principal. Replace this with a personal note that reflects your school\'s values, vision, and commitment to every student\'s growth and success.',
+    photo: '', // S3 URL of principal's portrait (ideally square)
+  },
+
+  // ---- Google Maps embed -------------------------------------------------
+  // Paste the src from Maps → Share → Embed a map → copy the src="..." value.
+  mapEmbed: '',
+
+  // ---- Quick-access boxes (leave empty [] to hide the section) -----------
+  // Colorful shortcut tiles shown prominently on the homepage.
+  // { label: string, icon: emoji, href: string, color: hex }
+  quickAccess: [],
+
+  // ---- Birthday ticker ---------------------------------------------------
+  // Fetches GET /api/public/birthdays; set true to show the ticker section.
+  showBirthdays: false,
 };
 
 export default DEFAULT;

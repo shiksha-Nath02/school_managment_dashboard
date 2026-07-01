@@ -8,9 +8,8 @@
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, X, Phone, Mail, Clock } from 'lucide-react';
+import { Menu, X, Phone, Mail, Clock, Instagram, Facebook, Youtube } from 'lucide-react';
 import { getSiteConfig } from '../../../config/siteConfig';
-import Ticker from '../shared/Ticker';
 
 export default function HeritageHeader() {
   const site = getSiteConfig();
@@ -26,8 +25,6 @@ export default function HeritageHeader() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
-      {/* Announcement ticker */}
-      <Ticker />
 
       {/* Utility strip */}
       <div className="hidden md:block bg-brand-800 text-white/80 text-xs">
@@ -40,8 +37,33 @@ export default function HeritageHeader() {
               <Mail size={13} /> {site.contact.email}
             </a>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Clock size={13} /> {site.contact.hours}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <Clock size={13} /> {site.contact.hours}
+            </div>
+            {/* Social media icons */}
+            {(site.social?.instagram || site.social?.facebook || site.social?.youtube) && (
+              <div className="flex items-center gap-3 ml-2 pl-4 border-l border-white/20">
+                {site.social.instagram && (
+                  <a href={site.social.instagram} target="_blank" rel="noopener noreferrer"
+                    className="text-white/60 hover:text-white transition-colors" aria-label="Instagram">
+                    <Instagram size={14} />
+                  </a>
+                )}
+                {site.social.facebook && (
+                  <a href={site.social.facebook} target="_blank" rel="noopener noreferrer"
+                    className="text-white/60 hover:text-white transition-colors" aria-label="Facebook">
+                    <Facebook size={14} />
+                  </a>
+                )}
+                {site.social.youtube && (
+                  <a href={site.social.youtube} target="_blank" rel="noopener noreferrer"
+                    className="text-white/60 hover:text-white transition-colors" aria-label="YouTube">
+                    <Youtube size={14} />
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -125,6 +147,29 @@ export default function HeritageHeader() {
             >
               Portal Login
             </Link>
+            {/* Social icons in mobile menu */}
+            {(site.social?.instagram || site.social?.facebook || site.social?.youtube) && (
+              <div className="flex items-center gap-4 pt-2 border-t border-gray-100 mt-1">
+                {site.social.instagram && (
+                  <a href={site.social.instagram} target="_blank" rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-brand-600 transition-colors">
+                    <Instagram size={18} />
+                  </a>
+                )}
+                {site.social.facebook && (
+                  <a href={site.social.facebook} target="_blank" rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-brand-600 transition-colors">
+                    <Facebook size={18} />
+                  </a>
+                )}
+                {site.social.youtube && (
+                  <a href={site.social.youtube} target="_blank" rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-brand-600 transition-colors">
+                    <Youtube size={18} />
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         )}
       </nav>

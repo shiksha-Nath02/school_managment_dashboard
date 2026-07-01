@@ -26,6 +26,13 @@ export function applyTheme() {
     root.style.setProperty('--gold-light', palette.gold.light);
   }
 
+  // surface colours (background / alt / pure white)
+  if (palette.surface) {
+    root.style.setProperty('--surface',     palette.surface.DEFAULT || '255 255 255');
+    root.style.setProperty('--surface-alt', palette.surface.alt     || '243 241 237');
+    root.style.setProperty('--surface-bg',  palette.surface.bg      || '250 250 248');
+  }
+
   // browser tab title
   if (config.name) document.title = config.name;
 }

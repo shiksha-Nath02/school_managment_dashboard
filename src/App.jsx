@@ -6,6 +6,7 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 
 // Public pages
 import LandingPage from './pages/public/LandingPage';
+import GalleryPage from './pages/public/GalleryPage';
 import LoginPage from './pages/auth/LoginPage';
 
 // Student pages
@@ -61,6 +62,7 @@ export default function App() {
     <Routes>
       {/* ===== PUBLIC ===== */}
       <Route path="/" element={<LandingPage />} />
+      <Route path="/gallery" element={<GalleryPage />} />
       <Route path="/login" element={<LoginPage />} />
 
       {/* ===== STUDENT DASHBOARD ===== */}
