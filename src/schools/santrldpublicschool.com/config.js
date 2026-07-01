@@ -16,17 +16,18 @@ const santrld = {
 
   // ---- Dials -------------------------------------------------------------
   layout: 'heritage',
-  palette: 'green',
+  palette: 'vibrant',
 
   // ---- Identity ----------------------------------------------------------
   name: 'Sant RLD Public School',
   shortName: 'Sant RLD',
   logoLetter: 'S',
-  logo: '', // TODO: S3 URL of the school logo
+  logo: '', // → '/schools/santrldpublicschool.com/logo.png'
   tagline: 'Knowledge · Discipline · Character',
   established: '2005', // TODO: confirm year of establishment
 
   // ---- Hero --------------------------------------------------------------
+  // Drop images into public/schools/santrldpublicschool.com/ and list them here.
   hero: {
     heading: 'Welcome to Sant RLD Public School',
     highlight: 'Sant RLD Public School',
@@ -34,7 +35,11 @@ const santrld = {
       'Nurturing young minds with quality education, strong values, and a caring environment — preparing every child for a bright and confident future.',
     primaryCta: { label: 'Apply for Admission', href: '#contact' },
     secondaryCta: { label: 'Explore Academics', href: '#academics' },
-    image: '', // TODO: S3 URL of a wide campus/building photo — fills the hero banner
+    image: '',
+    images: [
+      '/schools/santrldpublicschool.com/hero1.jpg',
+      '/schools/santrldpublicschool.com/hero2.jpg',
+    ],
   },
 
   // ---- Quick stats (TODO: confirm real figures) --------------------------
@@ -59,7 +64,7 @@ const santrld = {
       'Safe, modern, well-equipped campus',
       'Focus on academics, sports, and values',
     ],
-    image: '', // TODO: S3 URL of a school/students photo shown beside this text
+    image: '', // place file at public/schools/santrldpublicschool.com/about.jpg → '/schools/santrldpublicschool.com/about.jpg'
   },
 
   // ---- Academics / programs ----------------------------------------------
@@ -117,6 +122,38 @@ const santrld = {
     instagram: '',
     youtube: '',
   },
+
+  // ---- Our Story section -------------------------------------------------
+  story: {
+    kicker: 'Our Story',
+    heading: 'Discover Sant RLD',
+    subheading: 'Knowledge · Discipline · Character Since 2005',
+    body: 'Sant RLD Public School has been shaping young minds since 2005. Affiliated to CBSE, we offer a nurturing environment where every child can discover their potential through quality education and strong values. Our dedicated faculty and well-equipped facilities prepare students not just for exams, but for life.',
+    image: '', // drop file → public/schools/santrldpublicschool.com/story.jpg then set '/schools/santrldpublicschool.com/story.jpg'
+  },
+
+  // ---- Principal's Message -----------------------------------------------
+  principal: {
+    name: 'Principal Name', // TODO: confirm real name
+    designation: 'Principal, Sant RLD Public School',
+    message: 'At Sant RLD Public School, we believe that education is a journey of discovery. We are committed to nurturing every child\'s unique strengths, building character, and inspiring a lifelong love of learning. Together, we are shaping the confident, compassionate leaders of tomorrow.',
+    photo: '', // → '/schools/santrldpublicschool.com/principal.jpg'
+  },
+
+  // ---- Google Maps embed -------------------------------------------------
+  mapEmbed: '', // TODO: paste Maps → Share → Embed src URL here
+
+  // ---- Quick-access boxes (Sant RLD specific) ----------------------------
+  quickAccess: [
+    { label: 'Photo Gallery',     icon: '🖼️', href: '/gallery', color: '#FF5656' },
+    { label: 'Academic Calendar', icon: '📅', href: '#',        color: '#FFA239' },
+    { label: 'Syllabus',          icon: '📚', href: '#',        color: '#FEEE91' },
+    { label: 'Achievements',      icon: '🏆', href: '#',        color: '#8CE4FF' },
+    { label: 'Online Fee',        icon: '💳', href: '#',        color: '#FF5656' },
+  ],
+
+  // ---- Birthday ticker ---------------------------------------------------
+  showBirthdays: true,
 };
 
 export default santrld;

@@ -1,21 +1,16 @@
-// =============================================================================
-// HERITAGE LAYOUT — Notices (a formal "notice board" list)
-// =============================================================================
-// Pulls live circulars from circularService; falls back to config notices.
-// =============================================================================
-
+// Compact notices strip — just the list + a "download circular" action per item.
+// The hero already shows the scrolling notice board; this anchored section (#notices)
+// is the destination of the "See All Notices" link and the nav link.
 import { useState, useEffect } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Download } from 'lucide-react';
 import { getSiteConfig } from '../../../config/siteConfig';
 import circularService from '../../../services/circularService';
-import HeritageHeading from './HeritageHeading';
 
-// "2026-06-16T..." -> { d: "16", m: "JUN" } for the date chip.
 const fmtDate = (iso) => {
   const dt = new Date(iso);
   if (isNaN(dt)) return { d: '', m: '' };
   return {
-    d: String(dt.getDate()),
+    d: String(dt.getDate()).padStart(2, '0'),
     m: dt.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
   };
 };
@@ -31,46 +26,52 @@ export default function HeritageNotices() {
         if (items.length) {
           setNotices(items.map((c) => {
             const { d, m } = fmtDate(c.createdAt);
-            return { date: `${d}\n${m}`, tag: c.category || 'Notice', title: c.title, url: c.url };
+            return { date: `${d} ${m}`, tag: c.category || 'Notice', title: c.title, url: c.url };
           }));
         }
       })
-      .catch(() => {}); // keep config notices on failure
+      .catch(() => {});
   }, []);
 
   return (
-    <section id="notices" className="py-24 px-6 md:px-12 bg-surface-alt/50">
-      <div className="max-w-4xl mx-auto">
-        <HeritageHeading kicker="Stay Informed" title="Notice Board" />
+    <section id="notices" className="py-12 px-6 md:px-12 bg-white border-y border-gray-100">
+      <div className="max-w-5xl mx-auto">
+        {/* Compact heading row */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-7 bg-gold rounded-full" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[3px] text-gold">Stay Informed</p>
+              <h2 className="font-display font-extrabold text-lg text-brand-800 leading-tight">Notice Board</h2>
+            </div>
+          </div>
+        </div>
 
-        <div className="mt-12 bg-white border border-gray-200 rounded-md shadow-soft divide-y divide-gray-100 overflow-hidden">
+        {/* Compact notice list */}
+        <div className="divide-y divide-gray-100 rounded-md border border-gray-100 overflow-hidden bg-surface-bg">
           {notices.map((n, i) => {
             const Wrapper = n.url ? 'a' : 'div';
-            const wrapperProps = n.url
-              ? { href: n.url, target: '_blank', rel: 'noopener noreferrer' }
-              : {};
+            const props = n.url ? { href: n.url, target: '_blank', rel: 'noopener noreferrer' } : {};
             return (
               <Wrapper
                 key={i}
-                {...wrapperProps}
-                className="group flex items-center gap-5 p-5 hover:bg-surface-bg transition-colors animate-fade-up animate-start"
-                style={{ animationDelay: `${(i + 1) * 90}ms` }}
+                {...props}
+                className="group flex items-center gap-4 px-5 py-3 hover:bg-brand-50 transition-colors"
               >
-                <div className="flex flex-col items-center justify-center w-16 h-16 rounded-sm bg-brand-700 text-white flex-shrink-0">
-                  <span className="font-display font-bold text-sm leading-tight text-center whitespace-pre-line">
-                    {n.date}
-                  </span>
+                {/* Date chip */}
+                <div className="flex-shrink-0 w-12 h-12 rounded-sm bg-brand-700 text-white flex flex-col items-center justify-center text-center">
+                  <span className="text-sm font-extrabold leading-tight">{n.date?.split(' ')[0]}</span>
+                  <span className="text-[9px] font-bold uppercase leading-tight">{n.date?.split(' ')[1]}</span>
                 </div>
-                <div className="flex-1">
-                  <span className="inline-block text-[11px] font-bold uppercase tracking-wide text-gold mb-1">
-                    {n.tag}
-                  </span>
-                  <p className="text-sm text-gray-700 leading-snug">{n.title}</p>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-gold">{n.tag}</span>
+                  <p className="text-sm text-gray-700 leading-snug truncate">{n.title}</p>
                 </div>
-                <ArrowRight
-                  size={18}
-                  className="text-gray-300 group-hover:text-brand-600 group-hover:translate-x-1 transition-all flex-shrink-0"
-                />
+                {n.url ? (
+                  <Download size={15} className="text-gray-300 group-hover:text-brand-600 transition-colors flex-shrink-0" />
+                ) : (
+                  <ArrowRight size={15} className="text-gray-300 group-hover:text-brand-600 transition-colors flex-shrink-0" />
+                )}
               </Wrapper>
             );
           })}

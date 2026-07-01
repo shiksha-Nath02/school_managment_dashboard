@@ -43,9 +43,9 @@ export default {
           900: '#051118',
         },
         surface: {
-          DEFAULT: '#FFFFFF',
-          alt: '#F3F1ED',
-          bg: '#FAFAF8',
+          DEFAULT: 'rgb(var(--surface) / <alpha-value>)',
+          alt: 'rgb(var(--surface-alt) / <alpha-value>)',
+          bg: 'rgb(var(--surface-bg) / <alpha-value>)',
         },
         gold: {
           DEFAULT: 'rgb(var(--gold) / <alpha-value>)',
@@ -71,12 +71,22 @@ export default {
         'slide-in-left': 'slideInLeft 0.5s ease-out forwards',
         'float': 'float 4s ease-in-out infinite',
         'marquee': 'marquee 30s linear infinite',
+        'marquee-vertical': 'marqueeVertical 18s linear infinite',
         'ken-burns': 'kenBurns 18s ease-in-out infinite alternate',
+        'slide-fade': 'slideFade 0.8s ease-in-out forwards',
       },
       keyframes: {
         marquee: {
           from: { transform: 'translateX(0)' },
           to: { transform: 'translateX(-50%)' },
+        },
+        marqueeVertical: {
+          from: { transform: 'translateY(0)' },
+          to: { transform: 'translateY(-50%)' },
+        },
+        slideFade: {
+          from: { opacity: '0', transform: 'translateY(16px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
         },
         kenBurns: {
           from: { transform: 'scale(1)' },
