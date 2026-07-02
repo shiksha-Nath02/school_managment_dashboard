@@ -45,7 +45,7 @@ export default function AdminUniform() {
 
   // ── sell modal
   const [sellModal, setSellModal]   = useState(false);
-  const [sellForm, setSellForm]     = useState({ student_name: '', father_phone: '', admission_number: '', item_id: '', quantity: 1, amount_paying: '' });
+  const [sellForm, setSellForm]     = useState({ student_name: '', father_phone: '', admission_number: '', item_id: '', quantity: 1, discount: '', amount_paying: '' });
   const [sellSaving, setSellSaving] = useState(false);
   const [matched, setMatched]       = useState(null); // null=not checked, false=no match, object=found
 
@@ -126,7 +126,9 @@ export default function AdminUniform() {
 
   // ── sell modal
   const selectedItem = items.find((i) => i.id === parseInt(sellForm.item_id, 10));
-  const toPay     = selectedItem ? parseFloat(selectedItem.price) * (parseInt(sellForm.quantity, 10) || 1) : 0;
+  const gross     = selectedItem ? parseFloat(selectedItem.price) * (parseInt(sellForm.quantity, 10) || 1) : 0;
+  const discount  = Math.min(Math.max(parseFloat(sellForm.discount) || 0, 0), gross); // clamp to [0, gross]
+  const toPay     = gross - discount;
   const payingNow = parseFloat(sellForm.amount_paying) || 0;
   const leftNow   = Math.max(0, toPay - payingNow);
 
@@ -368,7 +370,7 @@ export default function AdminUniform() {
                   <Download className="w-4 h-4" /> Export CSV
                 </button>
                 <button
-                  onClick={() => { setSellForm({ student_name: '', father_phone: '', admission_number: '', item_id: '', quantity: 1, amount_paying: '' }); setMatched(null); setSellModal(true); }}
+                  onClick={() => { setSellForm({ student_name: '', father_phone: '', admission_number: '', item_id: '', quantity: 1, discount: '', amount_paying: '' }); setMatched(null); setSellModal(true); }}
                   className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-all"
                 >
                   <ShoppingCart className="w-4 h-4" /> Sell Item
@@ -448,6 +450,7 @@ export default function AdminUniform() {
                             </div>
                           ))}
                           <div className="pt-2 border-t border-gray-200 flex gap-6 text-xs font-semibold">
+                            {txn.discount > 0 && <span>Discount: <span className="text-amber-600">−{fmt(txn.discount)}</span></span>}
                             <span>To Pay: <span className="text-gray-700">{fmt(txn.toBePaid)}</span></span>
                             <span>Paid: <span className="text-emerald-600">{fmt(txn.paid)}</span></span>
                             <span>Left: <span className={txn.left <= 0 ? 'text-emerald-500' : 'text-red-500'}>{txn.left <= 0 ? 'Fully Paid' : fmt(txn.left)}</span></span>
@@ -551,6 +554,14 @@ export default function AdminUniform() {
               {selectedItem && (
                 <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 space-y-3">
                   <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 font-medium">Item total</span>
+                    <span className="font-semibold text-gray-700">{fmt(gross)}</span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Discount (₹)</label>
+                    <input type="number" min="0" max={gross} value={sellForm.discount} onChange={(e) => setSellForm((f) => ({ ...f, discount: e.target.value, amount_paying: '' }))} placeholder="0" className={inputCls} />
+                  </div>
+                  <div className="flex justify-between text-sm pt-1 border-t border-brand-100">
                     <span className="text-gray-500 font-medium">Amount to be paid</span>
                     <span className="font-bold text-gray-900 text-base">{fmt(toPay)}</span>
                   </div>
