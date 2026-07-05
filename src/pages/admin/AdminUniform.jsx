@@ -104,15 +104,32 @@ export default function AdminUniform() {
   };
 
   // ── item modal
-  const openAddItem  = () => { setItemForm({ item_name: '', size: '', price: '', units_available: '' }); setItemModal('add'); };
+  // Add mode holds one item name + many size rows; edit mode edits a single row.
+  const emptyVariant = () => ({ size: '', price: '', units_available: '' });
+  const openAddItem  = () => { setItemForm({ item_name: '', variants: [emptyVariant()] }); setItemModal('add'); };
   const openEditItem = (item) => { setItemForm({ item_name: item.itemName, size: item.size, price: item.price, units_available: item.unitsAvailable }); setItemModal(item); };
 
+  const setVariant    = (idx, patch) => setItemForm((f) => ({ ...f, variants: f.variants.map((v, i) => i === idx ? { ...v, ...patch } : v) }));
+  const addVariantRow = () => setItemForm((f) => ({ ...f, variants: [...f.variants, emptyVariant()] }));
+  const removeVariant = (idx) => setItemForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }));
+
   const handleSaveItem = async () => {
-    if (!itemForm.item_name || !itemForm.size || !itemForm.price) return showToast('error', 'Name, size, and price are required');
     setItemSaving(true);
     try {
-      if (itemModal === 'add') { await svc.addItem(itemForm); showToast('success', 'Item added'); }
-      else { await svc.updateItem(itemModal.id, itemForm); showToast('success', 'Item updated'); }
+      if (itemModal === 'add') {
+        if (!itemForm.item_name.trim()) { setItemSaving(false); return showToast('error', 'Item name is required'); }
+        const variants = itemForm.variants.filter((v) => v.size.trim() || v.price !== '');
+        if (!variants.length || variants.some((v) => !v.size.trim() || v.price === '')) {
+          setItemSaving(false); return showToast('error', 'Each size needs a size and price');
+        }
+        const sizes = variants.map((v) => v.size.trim().toLowerCase());
+        if (new Set(sizes).size !== sizes.length) { setItemSaving(false); return showToast('error', 'Duplicate size in the list'); }
+        const d = await svc.addItem({ item_name: itemForm.item_name.trim(), variants });
+        showToast('success', d.message || 'Item added');
+      } else {
+        if (!itemForm.item_name || !itemForm.size || !itemForm.price) { setItemSaving(false); return showToast('error', 'Name, size, and price are required'); }
+        await svc.updateItem(itemModal.id, itemForm); showToast('success', 'Item updated');
+      }
       setItemModal(null); loadItems();
     } catch (e) { showToast('error', e.response?.data?.message || 'Failed to save'); }
     finally { setItemSaving(false); }
@@ -469,36 +486,72 @@ export default function AdminUniform() {
       {/* ────── ADD / EDIT ITEM MODAL ────── */}
       {itemModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl">
+          <div className={`bg-white rounded-2xl w-full ${itemModal === 'add' ? 'max-w-lg' : 'max-w-sm'} shadow-xl max-h-[90vh] flex flex-col`}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="font-display font-bold text-gray-900">{itemModal === 'add' ? 'Add Uniform Item' : 'Edit Item'}</h3>
               <button onClick={() => setItemModal(null)}><X className="w-5 h-5 text-gray-400" /></button>
             </div>
-            <div className="px-6 py-5 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Item Name</label>
-                <input value={itemForm.item_name} onChange={(e) => setItemForm((f) => ({ ...f, item_name: e.target.value }))} list="item-suggestions" placeholder="e.g. Skirt" className={inputCls} />
-                <datalist id="item-suggestions">{ITEM_SUGGESTIONS.map((s) => <option key={s} value={s} />)}</datalist>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Size</label>
-                <input value={itemForm.size} onChange={(e) => setItemForm((f) => ({ ...f, size: e.target.value }))} list="size-suggestions" placeholder="e.g. M" className={inputCls} />
-                <datalist id="size-suggestions">{SIZE_SUGGESTIONS.map((s) => <option key={s} value={s} />)}</datalist>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            <datalist id="size-suggestions">{SIZE_SUGGESTIONS.map((s) => <option key={s} value={s} />)}</datalist>
+
+            {itemModal === 'add' ? (
+              <div className="px-6 py-5 space-y-4 overflow-y-auto">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Price (₹)</label>
-                  <input type="number" min="0" value={itemForm.price} onChange={(e) => setItemForm((f) => ({ ...f, price: e.target.value }))} placeholder="350" className={inputCls} />
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Item Name</label>
+                  <input value={itemForm.item_name} onChange={(e) => setItemForm((f) => ({ ...f, item_name: e.target.value }))} list="item-suggestions" placeholder="e.g. Skirt" className={inputCls} />
+                  <datalist id="item-suggestions">{ITEM_SUGGESTIONS.map((s) => <option key={s} value={s} />)}</datalist>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="grid grid-cols-[1fr_1fr_1fr_2rem] gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wide px-0.5">
+                    <span>Size</span><span>Price (₹)</span><span>Units</span><span></span>
+                  </div>
+                  {itemForm.variants.map((v, idx) => (
+                    <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_2rem] gap-2 items-center">
+                      <input value={v.size} onChange={(e) => setVariant(idx, { size: e.target.value })} list="size-suggestions" placeholder="M" className={inputCls} />
+                      <input type="number" min="0" value={v.price} onChange={(e) => setVariant(idx, { price: e.target.value })} placeholder="350" className={inputCls} />
+                      <input type="number" min="0" value={v.units_available} onChange={(e) => setVariant(idx, { units_available: e.target.value })} placeholder="20" className={inputCls} />
+                      <button
+                        onClick={() => removeVariant(idx)}
+                        disabled={itemForm.variants.length === 1}
+                        className="text-gray-300 hover:text-red-500 disabled:opacity-30 disabled:hover:text-gray-300 flex justify-center"
+                        title="Remove size"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button onClick={addVariantRow} className="flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 mt-1">
+                    <Plus className="w-4 h-4" /> Add another size
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-6 py-5 space-y-4 overflow-y-auto">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Item Name</label>
+                  <input value={itemForm.item_name} onChange={(e) => setItemForm((f) => ({ ...f, item_name: e.target.value }))} list="item-suggestions" placeholder="e.g. Skirt" className={inputCls} />
+                  <datalist id="item-suggestions">{ITEM_SUGGESTIONS.map((s) => <option key={s} value={s} />)}</datalist>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Units in Stock</label>
-                  <input type="number" min="0" value={itemForm.units_available} onChange={(e) => setItemForm((f) => ({ ...f, units_available: e.target.value }))} placeholder="20" className={inputCls} />
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Size</label>
+                  <input value={itemForm.size} onChange={(e) => setItemForm((f) => ({ ...f, size: e.target.value }))} list="size-suggestions" placeholder="e.g. M" className={inputCls} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Price (₹)</label>
+                    <input type="number" min="0" value={itemForm.price} onChange={(e) => setItemForm((f) => ({ ...f, price: e.target.value }))} placeholder="350" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Units in Stock</label>
+                    <input type="number" min="0" value={itemForm.units_available} onChange={(e) => setItemForm((f) => ({ ...f, units_available: e.target.value }))} placeholder="20" className={inputCls} />
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="flex gap-3 px-6 pb-6">
+            )}
+
+            <div className="flex gap-3 px-6 py-5 border-t border-gray-100">
               <button onClick={handleSaveItem} disabled={itemSaving} className="flex-1 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 disabled:opacity-50 flex items-center justify-center gap-2">
-                {itemSaving && <Loader2 className="w-4 h-4 animate-spin" />} {itemModal === 'add' ? 'Add Item' : 'Save Changes'}
+                {itemSaving && <Loader2 className="w-4 h-4 animate-spin" />} {itemModal === 'add' ? `Add ${itemForm.variants.length} Size${itemForm.variants.length === 1 ? '' : 's'}` : 'Save Changes'}
               </button>
               <button onClick={() => setItemModal(null)} className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
             </div>
