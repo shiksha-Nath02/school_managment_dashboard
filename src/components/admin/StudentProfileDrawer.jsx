@@ -23,7 +23,7 @@ const sel = `${inp} bg-white`;
 const EXTENDED_DEFAULTS = {
   // identity & academic
   name: '', email: '', phone: '',
-  admission_number: '', roll_number: '', date_of_birth: '', admission_date: '', status: 'active',
+  admission_number: '', roll_number: '', class_id: '', date_of_birth: '', admission_date: '', status: 'active',
   pen_number: '', apaar_id: '',
   aadhaar_number: '', father_name: '', father_phone: '', father_aadhaar: '',
   mother_name: '', mother_phone: '', mother_aadhaar: '', parents_pan: '',
@@ -42,6 +42,13 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
   const [form, setForm]         = useState({});
   const [saving, setSaving]     = useState(false);
   const [saveErr, setSaveErr]   = useState('');
+  const [classes, setClasses]   = useState([]);
+
+  // Load the class list once so the edit form can offer a "change class" dropdown.
+  useEffect(() => {
+    if (readOnly) return;
+    studentService.getClasses().then((d) => setClasses(d.classes || [])).catch(() => {});
+  }, [readOnly]);
 
   const openEdit = () => {
     setForm({
@@ -51,6 +58,7 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
       phone:                    student.user?.phone              || '',
       admission_number:         student.admission_number         || '',
       roll_number:              student.roll_number ?? '',
+      class_id:                 student.class_id ?? student.class?.id ?? '',
       date_of_birth:            dateOnly(student.date_of_birth),
       admission_date:           dateOnly(student.admission_date),
       status:                   student.status                   || 'active',
@@ -92,6 +100,9 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
         date_of_birth: form.date_of_birth || null,
         admission_date: form.admission_date || null,
       };
+      // Don't send a blank class — leave the student's class unchanged rather
+      // than writing an empty value into the class_id FK.
+      if (!payload.class_id) delete payload.class_id;
       const res = await save(student.id, payload);
       setEditing(false);
       onUpdated?.(res.student || null);
@@ -177,6 +188,16 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
                 <div className="col-span-2"><label className="text-xs text-gray-500 mb-1 block">Full Name</label><input value={form.name} onChange={f('name')} className={inp} /></div>
                 <div><label className="text-xs text-gray-500 mb-1 block">Admission No <span className="text-gray-400">(login ID)</span></label><input value={form.admission_number} onChange={f('admission_number')} className={inp} /></div>
                 <div><label className="text-xs text-gray-500 mb-1 block">Roll No</label><input type="number" value={form.roll_number} onChange={f('roll_number')} min="1" className={inp} /></div>
+                {classes.length > 0 && (
+                  <div className="col-span-2"><label className="text-xs text-gray-500 mb-1 block">Class</label>
+                    <select value={form.class_id} onChange={f('class_id')} className={sel}>
+                      <option value="">Select class</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>{c.class_name}{c.section ? ` ${c.section}` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div><label className="text-xs text-gray-500 mb-1 block">Date of Birth</label><input type="date" value={form.date_of_birth} onChange={f('date_of_birth')} className={inp} /></div>
                 <div><label className="text-xs text-gray-500 mb-1 block">Admission Date</label><input type="date" value={form.admission_date} onChange={f('admission_date')} className={inp} /></div>
                 <div><label className="text-xs text-gray-500 mb-1 block">Status</label>
