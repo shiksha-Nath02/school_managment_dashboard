@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { recordBulkPayment, getStudentFeeDetails } from '@/services/feeService';
 import api from '@/services/api';
-import { Banknote, Save, Loader2, CheckCircle } from 'lucide-react';
+import { Banknote, Save, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -49,16 +49,21 @@ const AdminFeeBulk = () => {
           try {
             const feeRes = await getStudentFeeDetails(s.id);
             const feeBody = feeRes?.data ?? feeRes;
-            return { ...s, currentPending: feeBody?.currentPending || 0, fineAmount: feeBody?.fine?.fine || 0 };
+            return {
+              ...s,
+              currentPending: feeBody?.currentPending || 0,
+              fineAmount: feeBody?.fine?.fine || 0,
+              hasAdjustment: (feeBody?.totalAdjustment || 0) > 0,
+            };
           } catch {
-            return { ...s, currentPending: 0, fineAmount: 0 };
+            return { ...s, currentPending: 0, fineAmount: 0, hasAdjustment: false };
           }
         })
       );
 
       setStudents(enriched);
       const payMap = {};
-      enriched.forEach(s => { payMap[s.id] = { amount: '', payment_method: 'cash' }; });
+      enriched.forEach(s => { payMap[s.id] = { amount: '', previous_dues: '', payment_method: 'cash' }; });
       setPayments(payMap);
     } catch (err) {
       console.error(err);
@@ -81,15 +86,16 @@ const AdminFeeBulk = () => {
 
   const handleSaveAll = async () => {
     const paymentsList = Object.entries(payments)
-      .filter(([_, v]) => v.amount && parseFloat(v.amount) > 0)
+      .filter(([_, v]) => (parseFloat(v.amount) || 0) > 0 || (parseFloat(v.previous_dues) || 0) > 0)
       .map(([studentId, v]) => ({
         student_id: parseInt(studentId),
-        amount: parseFloat(v.amount),
+        amount: parseFloat(v.amount) || 0,
+        previous_dues: parseFloat(v.previous_dues) || 0,
         payment_method: v.payment_method,
       }));
 
     if (paymentsList.length === 0) {
-      showToast('error', 'Enter at least one payment amount');
+      showToast('error', 'Enter at least one payment amount or previous dues');
       return;
     }
 
@@ -112,7 +118,8 @@ const AdminFeeBulk = () => {
   };
 
   const totalBeingPaid = Object.values(payments).reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
-  const payingCount = Object.values(payments).filter(p => p.amount && parseFloat(p.amount) > 0).length;
+  const totalPrevDues  = Object.values(payments).reduce((sum, p) => sum + (parseFloat(p.previous_dues) || 0), 0);
+  const payingCount = Object.values(payments).filter(p => (parseFloat(p.amount) || 0) > 0 || (parseFloat(p.previous_dues) || 0) > 0).length;
 
   const norm = (v) => (v ?? '').toString().toLowerCase().trim();
   const filteredStudents = students.filter((s) => {
@@ -188,7 +195,8 @@ const AdminFeeBulk = () => {
       {payingCount > 0 && (
         <div className="flex items-center justify-between bg-brand-50 border border-brand-500/20 rounded-xl px-5 py-3 mb-5">
           <div className="text-sm text-brand-500">
-            <strong>{payingCount}</strong> student{payingCount !== 1 ? 's' : ''} &nbsp;·&nbsp; Total: <strong>₹{totalBeingPaid.toLocaleString()}</strong>
+            <strong>{payingCount}</strong> student{payingCount !== 1 ? 's' : ''} &nbsp;·&nbsp; Collecting: <strong>₹{totalBeingPaid.toLocaleString()}</strong>
+            {totalPrevDues > 0 && <> &nbsp;·&nbsp; <span className="text-amber-600">Prev dues added: ₹{totalPrevDues.toLocaleString()}</span></>}
           </div>
           <button
             onClick={handleSaveAll}
@@ -218,8 +226,8 @@ const AdminFeeBulk = () => {
           <table className="w-full">
             <thead className="bg-brand-50">
               <tr>
-                {['Roll', 'Admission No.', 'Student Name', 'Pending', 'Amount (₹)', 'Method', 'Status'].map((h) => (
-                  <th key={h} className={`px-4 py-3 text-xs font-semibold text-brand-500 uppercase ${h === 'Pending' ? 'text-right' : h === 'Status' ? 'text-center' : 'text-left'}`}>
+                {['Roll', 'Admission No.', 'Student Name', 'Pending', 'Previous Dues', 'Amount (₹)', 'New Pending', 'Method', 'Status'].map((h) => (
+                  <th key={h} className={`px-4 py-3 text-xs font-semibold text-brand-500 uppercase ${(h === 'Pending' || h === 'New Pending') ? 'text-right' : h === 'Status' ? 'text-center' : 'text-left'}`}>
                     {h}
                   </th>
                 ))}
@@ -229,6 +237,9 @@ const AdminFeeBulk = () => {
               {filteredStudents.map((student, i) => {
                 const pay = payments[student.id] || {};
                 const result = results?.find(r => r.student_id === student.id);
+                const prevDues = parseFloat(pay.previous_dues) || 0;
+                const amt = parseFloat(pay.amount) || 0;
+                const newPending = (student.currentPending || 0) + prevDues - amt;
                 return (
                   <tr key={student.id} className={`border-t border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                     <td className="px-4 py-3 text-sm text-gray-400 tabular-nums">{student.roll_number}</td>
@@ -242,6 +253,24 @@ const AdminFeeBulk = () => {
                       {student.currentPending > 0 ? `₹${student.currentPending.toLocaleString()}` : '₹0'}
                     </td>
                     <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          value={pay.previous_dues || ''}
+                          onChange={(e) => handlePaymentChange(student.id, 'previous_dues', e.target.value)}
+                          placeholder="0"
+                          disabled={!!results}
+                          title="Arrears from before the ledger started (added once). Leave blank if none."
+                          className="w-24 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none disabled:bg-gray-50"
+                        />
+                        {student.hasAdjustment && (
+                          <span title="Previous dues already added for this student — don't re-enter." className="text-amber-500 shrink-0">
+                            <AlertTriangle className="w-4 h-4" />
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
                       <input
                         type="number"
                         value={pay.amount || ''}
@@ -250,6 +279,11 @@ const AdminFeeBulk = () => {
                         disabled={!!results}
                         className="w-28 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none disabled:bg-gray-50"
                       />
+                    </td>
+                    <td className={`px-4 py-3 text-sm text-right font-semibold tabular-nums ${
+                      newPending > 0 ? 'text-red-500' : newPending < 0 ? 'text-green-600' : 'text-gray-400'
+                    }`}>
+                      {(prevDues > 0 || amt > 0) ? `₹${Math.abs(newPending).toLocaleString()}${newPending < 0 ? ' cr' : ''}` : '—'}
                     </td>
                     <td className="px-4 py-3">
                       <select

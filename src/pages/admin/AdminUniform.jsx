@@ -46,6 +46,7 @@ export default function AdminUniform() {
   // ── sell modal
   const [sellModal, setSellModal]   = useState(false);
   const [sellForm, setSellForm]     = useState({ student_name: '', father_phone: '', admission_number: '', item_name: '', item_id: '', quantity: 1, discount: '', amount_paying: '' });
+  const [cart, setCart]             = useState([]); // multi-item sale lines: { item_id, item_name, size, price, quantity }
   const [sellSaving, setSellSaving] = useState(false);
   const [matched, setMatched]       = useState(null); // null=not checked, false=no match, object=found
 
@@ -93,7 +94,8 @@ export default function AdminUniform() {
     const header = ['Student Name', 'Admission No', 'Phone', 'Item', 'Size', 'Qty', 'To Pay', 'Paid', 'Left', 'Date'];
     const rows = filteredTxns.map((t) => [
       `"${t.studentName}"`, t.admissionNumber || '', t.fatherPhone || '',
-      `"${t.item?.itemName || ''}"`, t.item?.size || '', t.quantity,
+      `"${t.items && t.items.length > 0 ? t.items.map((i) => `${i.itemName} ${i.size} x${i.quantity}`).join('; ') : (t.item?.itemName || '')}"`,
+      t.items && t.items.length > 0 ? '' : (t.item?.size || ''), t.quantity,
       t.toBePaid, t.paid, t.left, fmtDate(t.createdAt),
     ]);
     const csv = [header, ...rows].map((r) => r.join(',')).join('\n');
@@ -146,12 +148,39 @@ export default function AdminUniform() {
   // cascading select: pick a name first, then its available sizes load.
   const itemNames = [...new Set(items.map((i) => i.itemName))];
   const sizesForItem = sellForm.item_name ? items.filter((i) => i.itemName === sellForm.item_name) : [];
-  const selectedItem = items.find((i) => i.id === parseInt(sellForm.item_id, 10));
-  const gross     = selectedItem ? parseFloat(selectedItem.price) * (parseInt(sellForm.quantity, 10) || 1) : 0;
-  const discount  = Math.min(Math.max(parseFloat(sellForm.discount) || 0, 0), gross); // clamp to [0, gross]
-  const toPay     = gross - discount;
+  const selectedItem = items.find((i) => i.id === parseInt(sellForm.item_id, 10)); // the line currently being added
+  const cartSubtotal = cart.reduce((s, l) => s + l.price * l.quantity, 0);
+  const gross     = cartSubtotal;
+  const discount  = Math.min(Math.max(parseFloat(sellForm.discount) || 0, 0), cartSubtotal); // clamp to [0, subtotal]
+  const toPay     = cartSubtotal - discount;
   const payingNow = parseFloat(sellForm.amount_paying) || 0;
   const leftNow   = Math.max(0, toPay - payingNow);
+
+  const addToCart = () => {
+    if (!selectedItem) { showToast('error', 'Choose an item and size'); return; }
+    const qty = parseInt(sellForm.quantity, 10) || 1;
+    if (qty <= 0) { showToast('error', 'Quantity must be at least 1'); return; }
+    const alreadyInCart = cart.filter((l) => l.item_id === selectedItem.id).reduce((s, l) => s + l.quantity, 0);
+    if (alreadyInCart + qty > selectedItem.unitsAvailable) {
+      showToast('error', `Only ${selectedItem.unitsAvailable} of ${selectedItem.itemName} (${selectedItem.size}) in stock`);
+      return;
+    }
+    setCart((prev) => {
+      const idx = prev.findIndex((l) => l.item_id === selectedItem.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], quantity: next[idx].quantity + qty };
+        return next;
+      }
+      return [...prev, {
+        item_id: selectedItem.id, item_name: selectedItem.itemName,
+        size: selectedItem.size, price: parseFloat(selectedItem.price), quantity: qty,
+      }];
+    });
+    setSellForm((f) => ({ ...f, item_name: '', item_id: '', quantity: 1 })); // reset line picker
+  };
+
+  const removeFromCart = (idx) => setCart((prev) => prev.filter((_, i) => i !== idx));
 
   // Look up the student by admission number and auto-fill name + father's phone.
   const lookupStudentDetails = async () => {
@@ -173,10 +202,17 @@ export default function AdminUniform() {
   };
 
   const handleSell = async () => {
-    if (!sellForm.student_name || !sellForm.item_id) return showToast('error', 'Student name and item are required');
+    if (!sellForm.student_name || cart.length === 0) return showToast('error', 'Student name and at least one item are required');
     setSellSaving(true);
     try {
-      const d = await svc.sellItem({ ...sellForm, quantity: parseInt(sellForm.quantity, 10) || 1 });
+      const d = await svc.sellItemsMulti({
+        student_name: sellForm.student_name,
+        father_phone: sellForm.father_phone,
+        admission_number: sellForm.admission_number,
+        discount: parseFloat(sellForm.discount) || 0,
+        amount_paying: parseFloat(sellForm.amount_paying) || 0,
+        items: cart.map((l) => ({ item_id: l.item_id, quantity: l.quantity })),
+      });
       setTxns((prev) => [d.transaction, ...prev]);
       setSellModal(false); loadItems(); showToast('success', 'Sale recorded');
     } catch (e) { showToast('error', e.response?.data?.message || 'Failed to record sale'); }
@@ -391,7 +427,7 @@ export default function AdminUniform() {
                   <Download className="w-4 h-4" /> Export CSV
                 </button>
                 <button
-                  onClick={() => { setSellForm({ student_name: '', father_phone: '', admission_number: '', item_name: '', item_id: '', quantity: 1, discount: '', amount_paying: '' }); setMatched(null); setSellModal(true); }}
+                  onClick={() => { setSellForm({ student_name: '', father_phone: '', admission_number: '', item_name: '', item_id: '', quantity: 1, discount: '', amount_paying: '' }); setCart([]); setMatched(null); setSellModal(true); }}
                   className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-all"
                 >
                   <ShoppingCart className="w-4 h-4" /> Sell Item
@@ -433,8 +469,19 @@ export default function AdminUniform() {
                           <p className="text-xs text-gray-400">{txn.admissionNumber || txn.fatherPhone || '—'}</p>
                         </div>
                         <div className="hidden md:block">
-                          <p className="text-sm text-gray-700 font-medium">{txn.item?.itemName}</p>
-                          <p className="text-xs text-gray-400">Size {txn.item?.size}</p>
+                          {txn.items && txn.items.length > 0 ? (
+                            <>
+                              <p className="text-sm text-gray-700 font-medium truncate">
+                                {txn.items[0].itemName} (Size {txn.items[0].size}){txn.items.length > 1 ? ` +${txn.items.length - 1} more` : ''}
+                              </p>
+                              <p className="text-xs text-gray-400">{txn.items.length} items · {txn.quantity} units</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-sm text-gray-700 font-medium">{txn.item?.itemName}</p>
+                              <p className="text-xs text-gray-400">Size {txn.item?.size}</p>
+                            </>
+                          )}
                         </div>
                         <span className="hidden md:inline text-sm text-gray-600">×{txn.quantity}</span>
                         <span className="hidden md:inline text-sm font-semibold text-gray-800">{fmt(txn.toBePaid)}</span>
@@ -459,6 +506,19 @@ export default function AdminUniform() {
                       {/* Expanded payment history */}
                       {isExpanded && (
                         <div className="bg-gray-50/60 border-t border-gray-100 px-14 py-3 space-y-1.5">
+                          {txn.items && txn.items.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Items</p>
+                              {txn.items.map((li) => (
+                                <div key={li.id} className="flex items-center gap-4 text-xs text-gray-600">
+                                  <span className="text-gray-700 font-medium">{li.itemName}</span>
+                                  <span className="text-gray-400">Size {li.size}</span>
+                                  <span className="text-gray-400">{fmt(li.unitPrice)} × {li.quantity}</span>
+                                  <span className="font-semibold text-gray-700">{fmt(li.lineTotal)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Payment History</p>
                           {txn.payments.length === 0 ? (
                             <p className="text-xs text-gray-400">No payments recorded.</p>
@@ -566,12 +626,12 @@ export default function AdminUniform() {
       {/* ────── SELL ITEM MODAL ────── */}
       {sellModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="font-display font-bold text-gray-900">Sell Uniform Item</h3>
+              <h3 className="font-display font-bold text-gray-900">Sell Uniform Items</h3>
               <button onClick={() => setSellModal(false)}><X className="w-5 h-5 text-gray-400" /></button>
             </div>
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-6 py-5 space-y-4 overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Student Name *</label>
@@ -591,10 +651,11 @@ export default function AdminUniform() {
                   {matched === false && <p className="mt-1 text-xs text-amber-600">No student matched — sale will be unlinked.</p>}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              {/* Add-a-line picker: item → size → qty → Add */}
+              <div className="grid grid-cols-[1fr_1fr_4rem_auto] gap-2 items-end">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Select Item *</label>
-                  <select value={sellForm.item_name} onChange={(e) => setSellForm((f) => ({ ...f, item_name: e.target.value, item_id: '', discount: '', amount_paying: '' }))} className={inputCls}>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Item</label>
+                  <select value={sellForm.item_name} onChange={(e) => setSellForm((f) => ({ ...f, item_name: e.target.value, item_id: '' }))} className={inputCls}>
                     <option value="">— Choose item —</option>
                     {itemNames.map((name) => (
                       <option key={name} value={name}>{name}</option>
@@ -602,25 +663,49 @@ export default function AdminUniform() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Size *</label>
-                  <select value={sellForm.item_id} onChange={(e) => setSellForm((f) => ({ ...f, item_id: e.target.value, amount_paying: '' }))} disabled={!sellForm.item_name} className={inputCls}>
-                    <option value="">{sellForm.item_name ? '— Choose size —' : '— Select item first —'}</option>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Size</label>
+                  <select value={sellForm.item_id} onChange={(e) => setSellForm((f) => ({ ...f, item_id: e.target.value }))} disabled={!sellForm.item_name} className={inputCls}>
+                    <option value="">{sellForm.item_name ? '— Size —' : '— Item first —'}</option>
                     {sizesForItem.map((i) => (
                       <option key={i.id} value={i.id} disabled={i.unitsAvailable === 0}>
-                        Size {i.size} — {fmt(i.price)} {i.unitsAvailable === 0 ? '(Out of stock)' : `(${i.unitsAvailable} left)`}
+                        {i.size} — {fmt(i.price)} {i.unitsAvailable === 0 ? '(Out)' : `(${i.unitsAvailable})`}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Quantity</label>
-                  <input type="number" min="1" value={sellForm.quantity} onChange={(e) => setSellForm((f) => ({ ...f, quantity: e.target.value, amount_paying: '' }))} className={inputCls} />
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Qty</label>
+                  <input type="number" min="1" value={sellForm.quantity} onChange={(e) => setSellForm((f) => ({ ...f, quantity: e.target.value }))} className={inputCls} />
                 </div>
+                <button type="button" onClick={addToCart} disabled={!sellForm.item_id}
+                  className="py-2.5 px-4 bg-brand-100 text-brand-700 rounded-xl text-sm font-semibold hover:bg-brand-200 disabled:opacity-40 whitespace-nowrap">
+                  + Add
+                </button>
               </div>
-              {selectedItem && (
+
+              {/* Cart lines */}
+              {cart.length > 0 && (
+                <div className="border border-gray-200 rounded-xl divide-y divide-gray-100">
+                  {cart.map((l, idx) => (
+                    <div key={`${l.item_id}-${idx}`} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <div className="min-w-0">
+                        <span className="font-medium text-gray-800">{l.item_name}</span>
+                        <span className="text-gray-400"> · Size {l.size}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-gray-500">{fmt(l.price)} × {l.quantity}</span>
+                        <span className="font-semibold text-gray-800 w-20 text-right">{fmt(l.price * l.quantity)}</span>
+                        <button type="button" onClick={() => removeFromCart(idx)} className="text-gray-300 hover:text-red-500"><X className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {cart.length > 0 && (
                 <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 font-medium">Item total</span>
+                    <span className="text-gray-500 font-medium">Subtotal ({cart.reduce((s, l) => s + l.quantity, 0)} items)</span>
                     <span className="font-semibold text-gray-700">{fmt(gross)}</span>
                   </div>
                   <div>
@@ -643,7 +728,7 @@ export default function AdminUniform() {
               )}
             </div>
             <div className="flex gap-3 px-6 pb-6">
-              <button onClick={handleSell} disabled={sellSaving} className="flex-1 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 disabled:opacity-50 flex items-center justify-center gap-2">
+              <button onClick={handleSell} disabled={sellSaving || cart.length === 0} className="flex-1 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 disabled:opacity-50 flex items-center justify-center gap-2">
                 {sellSaving && <Loader2 className="w-4 h-4 animate-spin" />} Confirm Sale
               </button>
               <button onClick={() => setSellModal(false)} className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
@@ -663,7 +748,11 @@ export default function AdminUniform() {
             <div className="px-6 py-5 space-y-4">
               <div className="bg-gray-50 rounded-xl p-4 text-sm space-y-1">
                 <p className="font-semibold text-gray-800">{payModal.studentName}</p>
-                <p className="text-gray-500">{payModal.item?.itemName} — {payModal.item?.size}</p>
+                <p className="text-gray-500">
+                  {payModal.items && payModal.items.length > 0
+                    ? payModal.items.map((i) => `${i.itemName} (${i.size})×${i.quantity}`).join(', ')
+                    : `${payModal.item?.itemName} — ${payModal.item?.size}`}
+                </p>
                 <div className="flex gap-4 pt-2 text-xs font-semibold">
                   <span>Total: <span className="text-gray-700">{fmt(payModal.toBePaid)}</span></span>
                   <span>Paid: <span className="text-emerald-600">{fmt(payModal.paid)}</span></span>
