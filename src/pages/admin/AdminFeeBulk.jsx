@@ -17,6 +17,8 @@ const AdminFeeBulk = () => {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [results, setResults] = useState(null);
+  const [nameFilter, setNameFilter] = useState('');
+  const [admissionFilter, setAdmissionFilter] = useState('');
 
   useEffect(() => {
     api.get('/admin/classes')
@@ -112,6 +114,13 @@ const AdminFeeBulk = () => {
   const totalBeingPaid = Object.values(payments).reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
   const payingCount = Object.values(payments).filter(p => p.amount && parseFloat(p.amount) > 0).length;
 
+  const norm = (v) => (v ?? '').toString().toLowerCase().trim();
+  const filteredStudents = students.filter((s) => {
+    const nameOk = !nameFilter || norm(s.user?.name).includes(norm(nameFilter));
+    const admOk = !admissionFilter || norm(s.admission_number ?? s.id).includes(norm(admissionFilter));
+    return nameOk && admOk;
+  });
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
@@ -157,6 +166,22 @@ const AdminFeeBulk = () => {
           <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)}
             className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none" />
         </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Search Name</label>
+          <input type="text" value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} placeholder="Student name"
+            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Admission No.</label>
+          <input type="text" value={admissionFilter} onChange={(e) => setAdmissionFilter(e.target.value)} placeholder="Admission no."
+            className="w-32 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none" />
+        </div>
+        {(nameFilter || admissionFilter) && (
+          <button onClick={() => { setNameFilter(''); setAdmissionFilter(''); }}
+            className="px-4 py-2.5 text-sm text-gray-500 hover:text-gray-700 underline">
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Summary + save bar */}
@@ -184,12 +209,16 @@ const AdminFeeBulk = () => {
         <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center text-gray-400">
           No students found for this class.
         </div>
+      ) : filteredStudents.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center text-gray-400">
+          No students match your filter.
+        </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full">
             <thead className="bg-brand-50">
               <tr>
-                {['Roll', 'Student Name', 'Pending', 'Amount (₹)', 'Method', 'Status'].map((h) => (
+                {['Roll', 'Admission No.', 'Student Name', 'Pending', 'Amount (₹)', 'Method', 'Status'].map((h) => (
                   <th key={h} className={`px-4 py-3 text-xs font-semibold text-brand-500 uppercase ${h === 'Pending' ? 'text-right' : h === 'Status' ? 'text-center' : 'text-left'}`}>
                     {h}
                   </th>
@@ -197,12 +226,13 @@ const AdminFeeBulk = () => {
               </tr>
             </thead>
             <tbody>
-              {students.map((student, i) => {
+              {filteredStudents.map((student, i) => {
                 const pay = payments[student.id] || {};
                 const result = results?.find(r => r.student_id === student.id);
                 return (
                   <tr key={student.id} className={`border-t border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                     <td className="px-4 py-3 text-sm text-gray-400 tabular-nums">{student.roll_number}</td>
+                    <td className="px-4 py-3 text-xs font-mono font-bold text-brand-600">{student.admission_number ?? student.id}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">
                       {student.user?.name || `Student ${student.id}`}
                     </td>
