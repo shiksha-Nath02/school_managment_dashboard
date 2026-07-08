@@ -45,7 +45,7 @@ export default function AdminUniform() {
 
   // ── sell modal
   const [sellModal, setSellModal]   = useState(false);
-  const [sellForm, setSellForm]     = useState({ student_name: '', father_phone: '', admission_number: '', item_id: '', quantity: 1, discount: '', amount_paying: '' });
+  const [sellForm, setSellForm]     = useState({ student_name: '', father_phone: '', admission_number: '', item_name: '', item_id: '', quantity: 1, discount: '', amount_paying: '' });
   const [sellSaving, setSellSaving] = useState(false);
   const [matched, setMatched]       = useState(null); // null=not checked, false=no match, object=found
 
@@ -142,6 +142,10 @@ export default function AdminUniform() {
   };
 
   // ── sell modal
+  // Items come back flat (one row per item+size). Group by name for the
+  // cascading select: pick a name first, then its available sizes load.
+  const itemNames = [...new Set(items.map((i) => i.itemName))];
+  const sizesForItem = sellForm.item_name ? items.filter((i) => i.itemName === sellForm.item_name) : [];
   const selectedItem = items.find((i) => i.id === parseInt(sellForm.item_id, 10));
   const gross     = selectedItem ? parseFloat(selectedItem.price) * (parseInt(sellForm.quantity, 10) || 1) : 0;
   const discount  = Math.min(Math.max(parseFloat(sellForm.discount) || 0, 0), gross); // clamp to [0, gross]
@@ -387,7 +391,7 @@ export default function AdminUniform() {
                   <Download className="w-4 h-4" /> Export CSV
                 </button>
                 <button
-                  onClick={() => { setSellForm({ student_name: '', father_phone: '', admission_number: '', item_id: '', quantity: 1, discount: '', amount_paying: '' }); setMatched(null); setSellModal(true); }}
+                  onClick={() => { setSellForm({ student_name: '', father_phone: '', admission_number: '', item_name: '', item_id: '', quantity: 1, discount: '', amount_paying: '' }); setMatched(null); setSellModal(true); }}
                   className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-all"
                 >
                   <ShoppingCart className="w-4 h-4" /> Sell Item
@@ -588,13 +592,22 @@ export default function AdminUniform() {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
+                <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Select Item *</label>
-                  <select value={sellForm.item_id} onChange={(e) => setSellForm((f) => ({ ...f, item_id: e.target.value, amount_paying: '' }))} className={inputCls}>
-                    <option value="">— Choose —</option>
-                    {items.map((i) => (
+                  <select value={sellForm.item_name} onChange={(e) => setSellForm((f) => ({ ...f, item_name: e.target.value, item_id: '', discount: '', amount_paying: '' }))} className={inputCls}>
+                    <option value="">— Choose item —</option>
+                    {itemNames.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Size *</label>
+                  <select value={sellForm.item_id} onChange={(e) => setSellForm((f) => ({ ...f, item_id: e.target.value, amount_paying: '' }))} disabled={!sellForm.item_name} className={inputCls}>
+                    <option value="">{sellForm.item_name ? '— Choose size —' : '— Select item first —'}</option>
+                    {sizesForItem.map((i) => (
                       <option key={i.id} value={i.id} disabled={i.unitsAvailable === 0}>
-                        {i.itemName} — Size {i.size} — {fmt(i.price)} {i.unitsAvailable === 0 ? '(Out of stock)' : `(${i.unitsAvailable} left)`}
+                        Size {i.size} — {fmt(i.price)} {i.unitsAvailable === 0 ? '(Out of stock)' : `(${i.unitsAvailable} left)`}
                       </option>
                     ))}
                   </select>
