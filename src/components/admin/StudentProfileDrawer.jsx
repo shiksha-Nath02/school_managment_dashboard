@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   X, User, BookOpen, Calendar, IndianRupee, ShoppingBag,
-  Loader2, AlertCircle, CheckCircle2, Pencil,
+  Loader2, AlertCircle, CheckCircle2, Pencil, Maximize2, Minimize2,
 } from 'lucide-react';
 import studentService from '../../services/studentService';
 
@@ -552,8 +552,33 @@ function Empty({ msg }) {
 export default function StudentProfileDrawer({ student: initialStudent, onClose, onUpdated, readOnly = false, updateStudent }) {
   const [activeTab, setActiveTab] = useState('info');
   const [student, setStudent] = useState(initialStudent);
+  const [width, setWidth] = useState(512); // px; drawer is resizable (max-w-lg ≈ 512)
 
   useEffect(() => { setStudent(initialStudent); setActiveTab('info'); }, [initialStudent]);
+
+  // Drag the left edge to resize; clamps between 360px and (viewport − 40px).
+  const startResize = (e) => {
+    e.preventDefault();
+    const onMove = (ev) => {
+      const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      setWidth(Math.min(Math.max(window.innerWidth - clientX, 360), window.innerWidth - 40));
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      document.body.style.userSelect = '';
+    };
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+  };
+
+  const isExpanded = width > 700;
+  const toggleExpand = () => setWidth(isExpanded ? 512 : Math.min(1100, window.innerWidth - 80));
 
   if (!student) return null;
 
@@ -567,7 +592,14 @@ export default function StudentProfileDrawer({ student: initialStudent, onClose,
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-40 transition-opacity" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-white z-50 flex flex-col shadow-2xl">
+      <div className="fixed right-0 top-0 h-full max-w-full bg-white z-50 flex flex-col shadow-2xl" style={{ width }}>
+        {/* Drag-to-resize handle (left edge) */}
+        <div
+          onMouseDown={startResize}
+          onTouchStart={startResize}
+          title="Drag to resize"
+          className="absolute left-0 top-0 h-full w-1.5 cursor-col-resize bg-transparent hover:bg-brand-300 active:bg-brand-400 transition-colors z-10"
+        />
         {/* Header */}
         <div className="flex items-center gap-4 px-6 py-5 border-b border-gray-100 shrink-0">
           <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-lg shrink-0">
@@ -579,6 +611,10 @@ export default function StudentProfileDrawer({ student: initialStudent, onClose,
               {student.class ? `Class ${student.class.class_name} ${student.class.section}` : ''} · Roll #{student.roll_number} · Adm #{student.admission_number ?? student.id}
             </p>
           </div>
+          <button onClick={toggleExpand} title={isExpanded ? 'Collapse' : 'Expand'}
+            className="text-gray-400 hover:text-brand-600 transition-colors shrink-0">
+            {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors shrink-0">
             <X className="w-5 h-5" />
           </button>
