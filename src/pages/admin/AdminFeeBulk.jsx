@@ -54,16 +54,17 @@ const AdminFeeBulk = () => {
               currentPending: feeBody?.currentPending || 0,
               fineAmount: feeBody?.fine?.fine || 0,
               hasAdjustment: (feeBody?.totalAdjustment || 0) > 0,
+              admission: feeBody?.admissionFee || null,
             };
           } catch {
-            return { ...s, currentPending: 0, fineAmount: 0, hasAdjustment: false };
+            return { ...s, currentPending: 0, fineAmount: 0, hasAdjustment: false, admission: null };
           }
         })
       );
 
       setStudents(enriched);
       const payMap = {};
-      enriched.forEach(s => { payMap[s.id] = { amount: '', previous_dues: '', payment_method: 'cash' }; });
+      enriched.forEach(s => { payMap[s.id] = { amount: '', previous_dues: '', adm_discount: '', adm_pay: '', payment_method: 'cash' }; });
       setPayments(payMap);
     } catch (err) {
       console.error(err);
@@ -85,17 +86,21 @@ const AdminFeeBulk = () => {
   };
 
   const handleSaveAll = async () => {
+    const hasAdmDisc = (v) => v.adm_discount !== '' && v.adm_discount != null;
     const paymentsList = Object.entries(payments)
-      .filter(([_, v]) => (parseFloat(v.amount) || 0) > 0 || (parseFloat(v.previous_dues) || 0) > 0)
+      .filter(([_, v]) => (parseFloat(v.amount) || 0) > 0 || (parseFloat(v.previous_dues) || 0) > 0
+                          || (parseFloat(v.adm_pay) || 0) > 0 || hasAdmDisc(v))
       .map(([studentId, v]) => ({
         student_id: parseInt(studentId),
         amount: parseFloat(v.amount) || 0,
         previous_dues: parseFloat(v.previous_dues) || 0,
+        adm_pay: parseFloat(v.adm_pay) || 0,
+        adm_discount: hasAdmDisc(v) ? parseFloat(v.adm_discount) || 0 : '',
         payment_method: v.payment_method,
       }));
 
     if (paymentsList.length === 0) {
-      showToast('error', 'Enter at least one payment amount or previous dues');
+      showToast('error', 'Enter at least one payment, previous dues, or admission fee');
       return;
     }
 
@@ -119,7 +124,10 @@ const AdminFeeBulk = () => {
 
   const totalBeingPaid = Object.values(payments).reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
   const totalPrevDues  = Object.values(payments).reduce((sum, p) => sum + (parseFloat(p.previous_dues) || 0), 0);
-  const payingCount = Object.values(payments).filter(p => (parseFloat(p.amount) || 0) > 0 || (parseFloat(p.previous_dues) || 0) > 0).length;
+  const totalAdmPay    = Object.values(payments).reduce((sum, p) => sum + (parseFloat(p.adm_pay) || 0), 0);
+  const payingCount = Object.values(payments).filter(p =>
+    (parseFloat(p.amount) || 0) > 0 || (parseFloat(p.previous_dues) || 0) > 0 || (parseFloat(p.adm_pay) || 0) > 0
+    || (p.adm_discount !== '' && p.adm_discount != null)).length;
 
   const norm = (v) => (v ?? '').toString().toLowerCase().trim();
   const filteredStudents = students.filter((s) => {
@@ -197,6 +205,7 @@ const AdminFeeBulk = () => {
           <div className="text-sm text-brand-500">
             <strong>{payingCount}</strong> student{payingCount !== 1 ? 's' : ''} &nbsp;·&nbsp; Collecting: <strong>₹{totalBeingPaid.toLocaleString()}</strong>
             {totalPrevDues > 0 && <> &nbsp;·&nbsp; <span className="text-amber-600">Prev dues added: ₹{totalPrevDues.toLocaleString()}</span></>}
+            {totalAdmPay > 0 && <> &nbsp;·&nbsp; <span className="text-brand-600">Admission: ₹{totalAdmPay.toLocaleString()}</span></>}
           </div>
           <button
             onClick={handleSaveAll}
@@ -222,11 +231,11 @@ const AdminFeeBulk = () => {
           No students match your filter.
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-          <table className="w-full">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto shadow-sm">
+          <table className="w-full min-w-[1100px]">
             <thead className="bg-brand-50">
               <tr>
-                {['Roll', 'Admission No.', 'Student Name', 'Pending', 'Previous Dues', 'Amount (₹)', 'New Pending', 'Method', 'Status'].map((h) => (
+                {['Roll', 'Admission No.', 'Student Name', 'Pending', 'Previous Dues', 'Amount (₹)', 'New Pending', 'Adm Fee', 'Adm Disc', 'Adm Pay', 'Method', 'Status'].map((h) => (
                   <th key={h} className={`px-4 py-3 text-xs font-semibold text-brand-500 uppercase ${(h === 'Pending' || h === 'New Pending') ? 'text-right' : h === 'Status' ? 'text-center' : 'text-left'}`}>
                     {h}
                   </th>
@@ -240,6 +249,12 @@ const AdminFeeBulk = () => {
                 const prevDues = parseFloat(pay.previous_dues) || 0;
                 const amt = parseFloat(pay.amount) || 0;
                 const newPending = (student.currentPending || 0) + prevDues - amt;
+                const adm = student.admission;
+                const admDiscTyped = pay.adm_discount !== '' && pay.adm_discount != null;
+                const admEffDisc = admDiscTyped ? (parseFloat(pay.adm_discount) || 0) : (adm ? adm.discount : 0);
+                const admDue = adm && !adm.assumed_paid
+                  ? Math.max(0, adm.annual_charge - admEffDisc - adm.paid_amount)
+                  : 0;
                 return (
                   <tr key={student.id} className={`border-t border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                     <td className="px-4 py-3 text-sm text-gray-400 tabular-nums">{student.roll_number}</td>
@@ -284,6 +299,26 @@ const AdminFeeBulk = () => {
                       newPending > 0 ? 'text-red-500' : newPending < 0 ? 'text-green-600' : 'text-gray-400'
                     }`}>
                       {(prevDues > 0 || amt > 0) ? `₹${Math.abs(newPending).toLocaleString()}${newPending < 0 ? ' cr' : ''}` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">
+                      {!adm ? <span className="text-gray-300">—</span>
+                        : adm.assumed_paid ? <span className="text-gray-400" title="Assumed paid before July (not in profit)">Paid (pre-Jul)</span>
+                        : admDue > 0 ? <span className="text-red-500 font-semibold">Due ₹{admDue.toLocaleString()}</span>
+                        : <span className="text-green-600 font-semibold">Paid</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <input type="number" value={pay.adm_discount ?? ''}
+                        onChange={(e) => handlePaymentChange(student.id, 'adm_discount', e.target.value)}
+                        placeholder="0" disabled={!!results || !adm}
+                        title="Admission fee rebate for this student"
+                        className="w-20 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none disabled:bg-gray-50" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <input type="number" value={pay.adm_pay ?? ''}
+                        onChange={(e) => handlePaymentChange(student.id, 'adm_pay', e.target.value)}
+                        placeholder="0" disabled={!!results || !adm}
+                        title="Admission fee being collected now (counts as income)"
+                        className="w-24 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none disabled:bg-gray-50" />
                     </td>
                     <td className="px-4 py-3">
                       <select
