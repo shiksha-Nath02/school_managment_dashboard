@@ -1,16 +1,18 @@
-// =============================================================================
-// HERITAGE LAYOUT — Gallery (image grid on a deep brand band)
-// =============================================================================
-// Pulls live images from galleryService; falls back to the config placeholders
-// (labelled tiles) until photos are uploaded. The first tile spans larger to
-// give the grid a more editorial, magazine-like feel.
-// =============================================================================
-
 import { useState, useEffect } from 'react';
-import { Image as ImageIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { FolderOpen, Image as ImageIcon, ArrowRight } from 'lucide-react';
 import { getSiteConfig } from '../../../config/siteConfig';
 import galleryService from '../../../services/galleryService';
-import Lightbox from '../shared/Lightbox';
+import HeritageHeading from './HeritageHeading';
+
+function groupByCategory(images) {
+  return images.reduce((acc, img) => {
+    const key = img.category || 'General';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(img);
+    return acc;
+  }, {});
+}
 
 // "sports" -> "Sports"
 const titleCase = (s) => (s || '').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -37,7 +39,7 @@ export default function HeritageGallery() {
           );
         }
       })
-      .catch(() => {}); // keep config placeholders on failure
+      .catch(() => setFolders({}));
   }, []);
 
   // Flat list of real photos for the lightbox (across all folders, in display order).
@@ -73,16 +75,17 @@ export default function HeritageGallery() {
   );
 
   return (
-    <section id="gallery" className="py-24 px-6 md:px-12 bg-brand-800">
+    <section id="gallery" className="py-16 px-6 md:px-12 bg-surface-alt/60">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-14 animate-fade-up animate-start">
-          <span className="block text-gold text-xs font-bold uppercase tracking-[3px] mb-2">
-            Moments
-          </span>
-          <h2 className="font-display text-3xl md:text-4xl font-extrabold tracking-tight text-white">
-            Life at Our School
-          </h2>
-          <div className="w-16 h-[3px] bg-gold mt-4 mx-auto" />
+        {/* Compact heading row */}
+        <div className="flex items-center justify-between mb-8">
+          <HeritageHeading kicker="Moments" title="Photo Albums" align="left" />
+          <button
+            onClick={() => navigate('/gallery')}
+            className="flex items-center gap-1.5 text-brand-600 hover:text-brand-800 font-bold text-sm uppercase tracking-wide transition-colors"
+          >
+            See All <ArrowRight size={15} />
+          </button>
         </div>
 
         {folders ? (
