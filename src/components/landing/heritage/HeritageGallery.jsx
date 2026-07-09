@@ -14,27 +14,65 @@ function groupByCategory(images) {
   }, {});
 }
 
+// "sports" -> "Sports"
+const titleCase = (s) => (s || '').replace(/\b\w/g, (c) => c.toUpperCase());
+
 export default function HeritageGallery() {
   const { gallery: configGallery } = getSiteConfig();
-  const navigate = useNavigate();
-  const [folders, setFolders] = useState(null);
+  const [items, setItems] = useState(configGallery); // flat placeholders (fallback)
+  const [folders, setFolders] = useState(null);      // real images grouped by folder
+  const [lightbox, setLightbox] = useState(null);    // index into `allPhotos` or null
 
   useEffect(() => {
     galleryService.list()
       .then((r) => {
         const imgs = r.data.images || [];
-        setFolders(imgs.length ? groupByCategory(imgs) : {});
+        if (imgs.length) {
+          const map = {};
+          for (const g of imgs) {
+            (map[g.category] = map[g.category] || []).push({ src: g.url, label: g.caption || g.category });
+          }
+          setFolders(
+            Object.entries(map)
+              .sort((a, b) => a[0].localeCompare(b[0]))
+              .map(([folder, images]) => ({ folder, images }))
+          );
+        }
       })
       .catch(() => setFolders({}));
   }, []);
 
-  const folderEntries = folders && Object.keys(folders).length > 0
-    ? Object.entries(folders).slice(0, 8).map(([name, imgs]) => ({
-        name, cover: imgs[0]?.url || null, count: imgs.length,
-      }))
-    : configGallery.slice(0, 8).map((g) => ({
-        name: g.label, cover: g.src || null, count: null,
-      }));
+  // Flat list of real photos for the lightbox (across all folders, in display order).
+  const allPhotos = folders ? folders.flatMap((f) => f.images) : items.filter((g) => g.src);
+  const openLightbox = (item) => {
+    const idx = allPhotos.findIndex((g) => g === item);
+    if (idx !== -1) setLightbox(idx);
+  };
+  const navLightbox = (dir) =>
+    setLightbox((i) => (i + dir + allPhotos.length) % allPhotos.length);
+
+  const tile = (g, i, big) => (
+    <div
+      key={i}
+      onClick={() => openLightbox(g)}
+      className={`group relative overflow-hidden rounded-md bg-gradient-to-br from-brand-600 to-brand-700 flex items-center justify-center animate-fade-up animate-start ${
+        g.src ? 'cursor-pointer' : ''
+      } ${big ? 'col-span-2 row-span-2 aspect-square md:aspect-auto' : 'aspect-[4/3]'}`}
+      style={{ animationDelay: `${(i + 1) * 70}ms` }}
+    >
+      {g.src ? (
+        <img src={g.src} alt={g.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+      ) : (
+        <div className="flex flex-col items-center text-white/40">
+          <ImageIcon size={28} />
+          <span className="text-xs font-medium mt-2">{g.label}</span>
+        </div>
+      )}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-brand-900/70 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="text-white text-xs font-semibold">{g.label}</span>
+      </div>
+    </div>
+  );
 
   return (
     <section id="gallery" className="py-16 px-6 md:px-12 bg-surface-alt/60">
@@ -50,57 +88,34 @@ export default function HeritageGallery() {
           </button>
         </div>
 
-        {/* Compact folder grid — 4 columns, uniform small cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {folderEntries.map((folder, i) => (
-            <div
-              key={folder.name}
-              onClick={() => navigate(`/gallery?category=${encodeURIComponent(folder.name)}`)}
-              className="group cursor-pointer bg-white border border-gray-200 rounded-lg overflow-hidden shadow-soft hover:shadow-card hover:-translate-y-1 transition-all duration-200 animate-fade-up animate-start"
-              style={{ animationDelay: `${i * 60}ms` }}
-            >
-              {/* Thumbnail — fixed compact height */}
-              <div className="h-28 relative overflow-hidden bg-brand-50">
-                {folder.cover ? (
-                  <img
-                    src={folder.cover}
-                    alt={folder.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <FolderOpen size={32} className="text-brand-200" />
-                  </div>
-                )}
-                {/* Hover tint */}
-                <div className="absolute inset-0 bg-brand-700/0 group-hover:bg-brand-700/20 transition-colors" />
+        {folders ? (
+          <div className="space-y-12">
+            {folders.map(({ folder, images }) => (
+              <div key={folder}>
+                <h3 className="font-display text-xl md:text-2xl font-semibold text-white mb-5 flex items-center gap-2">
+                  <span className="w-1.5 h-6 rounded bg-gold inline-block" />
+                  {titleCase(folder)}
+                  <span className="text-sm font-normal text-white/50">({images.length})</span>
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {images.map((g, i) => tile(g, i, i === 0))}
+                </div>
               </div>
-
-              {/* Label */}
-              <div className="px-3 py-2.5">
-                <p className="font-semibold text-sm text-brand-800 truncate leading-tight">
-                  {folder.name}
-                </p>
-                {folder.count !== null && (
-                  <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                    <ImageIcon size={10} /> {folder.count} photo{folder.count !== 1 ? 's' : ''}
-                  </p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Mobile see-all button */}
-        <div className="mt-6 text-center sm:hidden">
-          <button
-            onClick={() => navigate('/gallery')}
-            className="inline-flex items-center gap-2 border border-brand-600 text-brand-600 px-6 py-2.5 rounded-sm font-bold uppercase tracking-wide text-sm hover:bg-brand-50 transition-all"
-          >
-            See All Albums <ArrowRight size={15} />
-          </button>
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {items.map((g, i) => tile(g, i, i === 0))}
+          </div>
+        )}
       </div>
+
+      <Lightbox
+        images={allPhotos}
+        index={lightbox}
+        onClose={() => setLightbox(null)}
+        onNav={navLightbox}
+      />
     </section>
   );
 }
