@@ -60,6 +60,8 @@ function GalleryManager({ showToast }) {
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
+  const addFileRef = useRef(null);
+  const [addFolder, setAddFolder] = useState(null); // folder currently receiving "add more" images
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -81,11 +83,12 @@ function GalleryManager({ showToast }) {
     return [...set].sort();
   }, [images]);
 
-  // Group images by folder for display.
+  // Group images by folder; newest folder (by most recent image) on top.
   const groups = useMemo(() => {
     const m = {};
     for (const g of images) (m[g.category] = m[g.category] || []).push(g);
-    return Object.entries(m).sort((a, b) => a[0].localeCompare(b[0]));
+    const latest = (imgs) => Math.max(...imgs.map((x) => new Date(x.createdAt || 0).getTime()));
+    return Object.entries(m).sort((a, b) => latest(b[1]) - latest(a[1]));
   }, [images]);
 
   const handleUpload = async (e) => {
@@ -103,6 +106,24 @@ function GalleryManager({ showToast }) {
       showToast('error', err.response?.data?.message || 'Upload failed');
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Add more images to an EXISTING folder (from that folder's "+ Add" button).
+  const handleAddToFolder = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!files.length || !addFolder) { setAddFolder(null); return; }
+    setUploading(true);
+    try {
+      const r = await galleryService.upload(addFolder, files, '');
+      setImages((prev) => [...(r.data.images || []), ...prev]);
+      showToast('success', `${(r.data.images || []).length} image(s) added to "${addFolder}"`);
+    } catch (err) {
+      showToast('error', err.response?.data?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      setAddFolder(null);
     }
   };
 
@@ -159,12 +180,22 @@ function GalleryManager({ showToast }) {
         <p className="text-center text-gray-400 text-sm py-16">No gallery images yet.</p>
       ) : (
         <div className="space-y-6">
+          {/* Shared hidden input used by each folder's "Add" button */}
+          <input type="file" accept="image/jpeg,image/png,image/jpg" multiple className="hidden" ref={addFileRef} onChange={handleAddToFolder} />
           {groups.map(([folder, imgs]) => (
             <div key={folder}>
               <div className="flex items-center gap-2 mb-2 text-gray-700">
                 <FolderOpen className="w-4 h-4 text-brand-500" />
                 <span className="text-sm font-semibold capitalize">{folder}</span>
                 <span className="text-xs text-gray-400">({imgs.length})</span>
+                <button
+                  onClick={() => { setAddFolder(folder); addFileRef.current?.click(); }}
+                  disabled={uploading}
+                  className="ml-2 flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 disabled:opacity-50"
+                >
+                  {uploading && addFolder === folder ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  Add images
+                </button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {imgs.map((g) => (
