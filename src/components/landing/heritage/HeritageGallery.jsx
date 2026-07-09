@@ -1,27 +1,31 @@
+// =============================================================================
+// HERITAGE LAYOUT — Gallery preview (homepage)
+// =============================================================================
+// A compact "Photo Albums" teaser on the homepage. Shows folders (categories)
+// grouped, and links to the full /gallery page (GalleryPage) which has the
+// category tabs + lightbox. Falls back to config placeholders until photos
+// are uploaded.
+// =============================================================================
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FolderOpen, Image as ImageIcon, ArrowRight } from 'lucide-react';
+import { Image as ImageIcon, ArrowRight } from 'lucide-react';
 import { getSiteConfig } from '../../../config/siteConfig';
 import galleryService from '../../../services/galleryService';
 import HeritageHeading from './HeritageHeading';
 
-function groupByCategory(images) {
-  return images.reduce((acc, img) => {
-    const key = img.category || 'General';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(img);
-    return acc;
-  }, {});
-}
-
 // "sports" -> "Sports"
 const titleCase = (s) => (s || '').replace(/\b\w/g, (c) => c.toUpperCase());
 
+// How many folders / images to preview on the homepage before "See All".
+const MAX_FOLDERS = 3;
+const MAX_PER_FOLDER = 3;
+
 export default function HeritageGallery() {
   const { gallery: configGallery } = getSiteConfig();
+  const navigate = useNavigate();
   const [items, setItems] = useState(configGallery); // flat placeholders (fallback)
   const [folders, setFolders] = useState(null);      // real images grouped by folder
-  const [lightbox, setLightbox] = useState(null);    // index into `allPhotos` or null
 
   useEffect(() => {
     galleryService.list()
@@ -39,25 +43,16 @@ export default function HeritageGallery() {
           );
         }
       })
-      .catch(() => setFolders({}));
+      .catch(() => {}); // keep config placeholders on failure
   }, []);
 
-  // Flat list of real photos for the lightbox (across all folders, in display order).
-  const allPhotos = folders ? folders.flatMap((f) => f.images) : items.filter((g) => g.src);
-  const openLightbox = (item) => {
-    const idx = allPhotos.findIndex((g) => g === item);
-    if (idx !== -1) setLightbox(idx);
-  };
-  const navLightbox = (dir) =>
-    setLightbox((i) => (i + dir + allPhotos.length) % allPhotos.length);
+  const goToFolder = (folder) => navigate(`/gallery?category=${encodeURIComponent(folder)}`);
 
-  const tile = (g, i, big) => (
+  const tile = (g, i, onClick) => (
     <div
       key={i}
-      onClick={() => openLightbox(g)}
-      className={`group relative overflow-hidden rounded-md bg-gradient-to-br from-brand-600 to-brand-700 flex items-center justify-center animate-fade-up animate-start ${
-        g.src ? 'cursor-pointer' : ''
-      } ${big ? 'col-span-2 row-span-2 aspect-square md:aspect-auto' : 'aspect-[4/3]'}`}
+      onClick={onClick}
+      className={`group relative aspect-[4/3] overflow-hidden rounded-md bg-gradient-to-br from-brand-600 to-brand-700 flex items-center justify-center animate-fade-up animate-start ${onClick ? 'cursor-pointer' : ''}`}
       style={{ animationDelay: `${(i + 1) * 70}ms` }}
     >
       {g.src ? (
@@ -77,7 +72,7 @@ export default function HeritageGallery() {
   return (
     <section id="gallery" className="py-16 px-6 md:px-12 bg-surface-alt/60">
       <div className="max-w-7xl mx-auto">
-        {/* Compact heading row */}
+        {/* Heading + See All */}
         <div className="flex items-center justify-between mb-8">
           <HeritageHeading kicker="Moments" title="Photo Albums" align="left" />
           <button
@@ -89,33 +84,26 @@ export default function HeritageGallery() {
         </div>
 
         {folders ? (
-          <div className="space-y-12">
-            {folders.map(({ folder, images }) => (
+          <div className="space-y-10">
+            {folders.slice(0, MAX_FOLDERS).map(({ folder, images }) => (
               <div key={folder}>
-                <h3 className="font-display text-xl md:text-2xl font-semibold text-white mb-5 flex items-center gap-2">
-                  <span className="w-1.5 h-6 rounded bg-gold inline-block" />
+                <h3 className="font-display text-lg md:text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="w-1.5 h-5 rounded bg-brand-500 inline-block" />
                   {titleCase(folder)}
-                  <span className="text-sm font-normal text-white/50">({images.length})</span>
+                  <span className="text-sm font-normal text-gray-400">({images.length})</span>
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {images.map((g, i) => tile(g, i, i === 0))}
+                  {images.slice(0, MAX_PER_FOLDER).map((g, i) => tile(g, i, () => goToFolder(folder)))}
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {items.map((g, i) => tile(g, i, i === 0))}
+            {items.map((g, i) => tile(g, i, g.src ? () => navigate('/gallery') : undefined))}
           </div>
         )}
       </div>
-
-      <Lightbox
-        images={allPhotos}
-        index={lightbox}
-        onClose={() => setLightbox(null)}
-        onNav={navLightbox}
-      />
     </section>
   );
 }
