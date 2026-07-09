@@ -21,6 +21,7 @@ const AdminSessionSetup = () => {
     fine_enabled: false,
     fine_per_day: 5,
     grace_period_days: 10,
+    admission_fee: 4000,
     fee_mode: 'default', // 'default' | 'copy' | 'individual'
     default_monthly_fee: '',
     copy_from_session_id: '',
@@ -115,7 +116,8 @@ const AdminSessionSetup = () => {
         excluded_months: form.excluded_months,
         fine_enabled: form.fine_enabled,
         fine_per_day: form.fine_enabled ? parseFloat(form.fine_per_day) : 0,
-        grace_period_days: form.fine_enabled ? parseInt(form.grace_period_days) : 10
+        grace_period_days: form.fine_enabled ? parseInt(form.grace_period_days) : 10,
+        admission_fee: parseFloat(form.admission_fee) || 0
       };
 
       if (form.fee_mode === 'default') {
@@ -349,6 +351,19 @@ const AdminSessionSetup = () => {
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
                     />
                   </div>
+                </div>
+
+                {/* Admission fee */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Admission Fee (annual, ₹)</label>
+                  <input
+                    type="number"
+                    value={form.admission_fee}
+                    onChange={(e) => setForm(prev => ({ ...prev, admission_fee: e.target.value }))}
+                    placeholder="e.g. 4000"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">Charged once per student for the session. New students inherit this; collect it in Bulk Payment.</p>
                 </div>
 
                 {/* Excluded Months */}
