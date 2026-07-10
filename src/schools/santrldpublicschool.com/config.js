@@ -64,7 +64,7 @@ const santrld = {
       'Safe, modern, well-equipped campus',
       'Focus on academics, sports, and values',
     ],
-    image: '', // place file at public/schools/santrldpublicschool.com/about.jpg → '/schools/santrldpublicschool.com/about.jpg'
+    image: '/schools/santrldpublicschool.com/about.jpeg',
   },
 
   // ---- Academics / programs ----------------------------------------------
@@ -137,7 +137,7 @@ const santrld = {
     name: 'Principal Name', // TODO: confirm real name
     designation: 'Principal, Sant RLD Public School',
     message: 'At Sant RLD Public School, we believe that education is a journey of discovery. We are committed to nurturing every child\'s unique strengths, building character, and inspiring a lifelong love of learning. Together, we are shaping the confident, compassionate leaders of tomorrow.',
-    photo: '', // → '/schools/santrldpublicschool.com/principal.jpg'
+    photo: '/schools/santrldpublicschool.com/principal.jpeg',
   },
 
   // ---- Google Maps embed -------------------------------------------------
