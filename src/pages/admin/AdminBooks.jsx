@@ -16,6 +16,16 @@ const filterCls = 'border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray
 
 const fmt     = (n) => `₹${parseFloat(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+// Date + time in one string (local/IST), for the sale timestamp column.
+const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
+// Local YYYY-MM-DD for a timestamp, matching what fmtDate shows. The raw
+// createdAt is UTC, so filtering on its string prefix mis-buckets sales made
+// after midnight local time; compare on the local calendar date instead.
+const toYmd   = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+};
 const today   = () => new Date().toISOString().split('T')[0];
 
 export default function AdminBooks() {
@@ -77,7 +87,7 @@ export default function AdminBooks() {
 
   // ── client-side filtered list
   const filteredTxns = useMemo(() => txns.filter((t) => {
-    if (filterDate      && !t.createdAt?.startsWith(filterDate))                                      return false;
+    if (filterDate      && toYmd(t.createdAt) !== filterDate)                                          return false;
     if (filterAdmission && !t.admissionNumber?.toLowerCase().includes(filterAdmission.toLowerCase())) return false;
     if (filterPhone     && !t.fatherPhone?.includes(filterPhone))                                     return false;
     if (filterStatus === 'paid'    && t.left > 0)  return false;
@@ -92,7 +102,7 @@ export default function AdminBooks() {
     const rows = filteredTxns.map((t) => [
       `"${t.studentName}"`, t.admissionNumber || '', t.fatherPhone || '',
       `"${t.item?.bookName || ''}"`, t.item?.className || '', t.item?.subject || '',
-      t.quantity, t.toBePaid, t.paid, t.left, fmtDate(t.createdAt),
+      t.quantity, t.toBePaid, t.paid, t.left, `"${fmtDateTime(t.createdAt)}"`,
     ]);
     const csv = [header, ...rows].map((r) => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -386,7 +396,7 @@ export default function AdminBooks() {
                         <span className={`hidden md:inline text-sm font-bold ${fullyPaid ? 'text-emerald-500' : 'text-red-500'}`}>
                           {fullyPaid ? '✓ Paid' : fmt(txn.left)}
                         </span>
-                        <span className="hidden md:inline text-xs text-gray-400">{fmtDate(txn.createdAt)}</span>
+                        <span className="hidden md:inline text-xs text-gray-400 whitespace-nowrap">{fmtDateTime(txn.createdAt)}</span>
                         <div className="flex items-center gap-1.5 justify-end">
                           {!fullyPaid && (
                             <button onClick={() => openPayModal(txn)} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors">

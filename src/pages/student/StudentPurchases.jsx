@@ -4,6 +4,7 @@ import api from '../../services/api';
 
 const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
+const fmtDateTime = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '—');
 
 export default function StudentPurchases() {
   const [data, setData] = useState(null);
@@ -67,7 +68,7 @@ export default function StudentPurchases() {
                     {(t.className || t.subject) && (
                       <p className="text-xs text-gray-400">{[t.className, t.subject].filter(Boolean).join(' · ')}</p>
                     )}
-                    <p className="text-xs text-gray-400 mt-0.5">Qty {t.quantity} · {fmtDate(t.date)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Qty {t.quantity} · {fmtDateTime(t.date)}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-sm font-bold text-gray-900">{money(t.toBePaid)}</p>
