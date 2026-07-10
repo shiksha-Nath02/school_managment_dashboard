@@ -64,7 +64,7 @@ const santrld = {
       'Safe, modern, well-equipped campus',
       'Focus on academics, sports, and values',
     ],
-    image: '', // place file at public/schools/santrldpublicschool.com/about.jpg → '/schools/santrldpublicschool.com/about.jpg'
+    image: '/schools/santrldpublicschool.com/about.jpeg',
   },
 
   // ---- Academics / programs ----------------------------------------------
@@ -72,7 +72,6 @@ const santrld = {
     { icon: '🧸', title: 'Pre-Primary', age: 'Nursery – UKG', desc: 'A joyful, play-based start where little ones build language, motor skills, and social confidence.' },
     { icon: '✏️', title: 'Primary', age: 'Classes 1–5', desc: 'Strong foundations in reading, writing, and numeracy through activity-led, child-friendly teaching.' },
     { icon: '📐', title: 'Middle School', age: 'Classes 6–8', desc: 'Curiosity-driven learning across science, maths, languages, and the arts to widen every horizon.' },
-    { icon: '🎓', title: 'Secondary', age: 'Classes 9–10', desc: 'Focused academics and mentoring that prepare students for board exams and the road ahead.' },
   ],
 
   // ---- Facilities (add an `image` S3 URL to each to show real photos) -----
@@ -137,7 +136,7 @@ const santrld = {
     name: 'Principal Name', // TODO: confirm real name
     designation: 'Principal, Sant RLD Public School',
     message: 'At Sant RLD Public School, we believe that education is a journey of discovery. We are committed to nurturing every child\'s unique strengths, building character, and inspiring a lifelong love of learning. Together, we are shaping the confident, compassionate leaders of tomorrow.',
-    photo: '', // → '/schools/santrldpublicschool.com/principal.jpg'
+    photo: '/schools/santrldpublicschool.com/principal.jpeg',
   },
 
   // ---- Google Maps embed -------------------------------------------------
@@ -149,7 +148,6 @@ const santrld = {
     { label: 'Academic Calendar', icon: '📅', href: '#',        color: '#FFA239' },
     { label: 'Syllabus',          icon: '📚', href: '#',        color: '#FEEE91' },
     { label: 'Achievements',      icon: '🏆', href: '#',        color: '#8CE4FF' },
-    { label: 'Online Fee',        icon: '💳', href: '#',        color: '#FF5656' },
   ],
 
   // ---- Birthday ticker ---------------------------------------------------

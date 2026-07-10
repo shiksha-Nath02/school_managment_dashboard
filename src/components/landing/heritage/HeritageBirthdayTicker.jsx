@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import api from '../../../services/api';
 
+// Below this many birthdays we show a static, centered row (no marquee) so a
+// single celebrant isn't duplicated. At/above it we scroll a seamless marquee,
+// which needs the list doubled to loop without a visible gap.
+const MARQUEE_THRESHOLD = 5;
+
 export default function HeritageBirthdayTicker() {
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,8 +26,28 @@ export default function HeritageBirthdayTicker() {
 
   if (loading || people.length === 0) return null;
 
-  // Duplicate for seamless infinite marquee
-  const doubled = [...people, ...people];
+  const card = (p, i) => (
+    <div
+      key={i}
+      className="flex-shrink-0 w-44 bg-white border border-brand-100 rounded-xl shadow-soft p-4 flex flex-col items-center text-center"
+    >
+      {/* Birthday card header */}
+      <div className="w-full rounded-lg bg-brand-700 py-2 mb-3 flex items-center justify-center">
+        <span className="text-2xl">🎂</span>
+      </div>
+      <p className="font-display font-bold text-brand-800 text-sm leading-tight">{p.name}</p>
+      {p.sub && <p className="text-xs text-gray-400 mt-1">{p.sub}</p>}
+      <span
+        className={`mt-2 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+          p.type === 'teacher' ? 'bg-gold/20 text-brand-700' : 'bg-brand-100 text-brand-700'
+        }`}
+      >
+        {p.type === 'teacher' ? 'Teacher' : 'Student'}
+      </span>
+    </div>
+  );
+
+  const useMarquee = people.length >= MARQUEE_THRESHOLD;
 
   return (
     <section className="py-14 px-6 md:px-12 bg-brand-50 border-y border-brand-100 overflow-hidden">
@@ -34,37 +59,19 @@ export default function HeritageBirthdayTicker() {
         <div className="w-12 h-[3px] bg-gold mx-auto mt-3" />
       </div>
 
-      {/* Marquee track */}
-      <div className="relative overflow-hidden">
-        <div className="flex gap-4 animate-marquee w-max hover:[animation-play-state:paused]">
-          {doubled.map((p, i) => (
-            <div
-              key={i}
-              className="flex-shrink-0 w-44 bg-white border border-brand-100 rounded-xl shadow-soft p-4 flex flex-col items-center text-center"
-            >
-              {/* Birthday card header */}
-              <div className="w-full rounded-lg bg-brand-700 py-2 mb-3 flex items-center justify-center">
-                <span className="text-2xl">🎂</span>
-              </div>
-              <p className="font-display font-bold text-brand-800 text-sm leading-tight">
-                {p.name}
-              </p>
-              {p.sub && (
-                <p className="text-xs text-gray-400 mt-1">{p.sub}</p>
-              )}
-              <span
-                className={`mt-2 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                  p.type === 'teacher'
-                    ? 'bg-gold/20 text-brand-700'
-                    : 'bg-brand-100 text-brand-700'
-                }`}
-              >
-                {p.type === 'teacher' ? 'Teacher' : 'Student'}
-              </span>
-            </div>
-          ))}
+      {useMarquee ? (
+        // Seamless infinite marquee — list doubled so it loops without a gap.
+        <div className="relative overflow-hidden">
+          <div className="flex gap-4 animate-marquee w-max hover:[animation-play-state:paused]">
+            {[...people, ...people].map((p, i) => card(p, i))}
+          </div>
         </div>
-      </div>
+      ) : (
+        // Few celebrants — show each once, centered, no scrolling.
+        <div className="flex flex-wrap justify-center gap-4">
+          {people.map((p, i) => card(p, i))}
+        </div>
+      )}
     </section>
   );
 }

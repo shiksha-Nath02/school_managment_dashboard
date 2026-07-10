@@ -20,13 +20,13 @@ export default function Heritage() {
     <div className="min-h-screen bg-surface-bg font-body scroll-smooth">
       <HeritageHeader />
       <HeritageHero />
+      {showBirthdays && <HeritageBirthdayTicker />}
       <HeritageAbout />
       <HeritagePrincipalMessage />
       <HeritagePrograms />
       <HeritageFacilities />
       <HeritageQuickAccess />
       <HeritageGallery />
-      {showBirthdays && <HeritageBirthdayTicker />}
       <HeritageContact />
       <HeritageFooter />
     </div>
