@@ -477,6 +477,9 @@ export default function AdminUniform() {
                         <div>
                           <p className="text-sm font-semibold text-gray-900">{txn.studentName}</p>
                           <p className="text-xs text-gray-400">{txn.admissionNumber || txn.fatherPhone || '—'}</p>
+                          {txn.studentCategory && (
+                            <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-50 text-brand-600">{txn.studentCategory}</span>
+                          )}
                         </div>
                         <div className="hidden md:block">
                           {txn.items && txn.items.length > 0 ? (
