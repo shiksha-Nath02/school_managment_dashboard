@@ -6,6 +6,16 @@ import CsvModal from '@/components/common/CsvModal';
 const ITEM_SUGGESTIONS = ['Shirt', 'Skirt', 'Pants', 'Blazer', 'Tie', 'Belt', 'Socks', 'Shoes', 'Sweater', 'Salwar'];
 const SIZE_SUGGESTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '28', '30', '32', '34', '36', '38'];
 
+// Must match the backend ENUM on uniform_payments.payment_method.
+const PAYMENT_METHODS = [
+  { value: 'cash',          label: 'Cash' },
+  { value: 'upi',           label: 'UPI' },
+  { value: 'online',        label: 'Online' },
+  { value: 'cheque',        label: 'Cheque' },
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+];
+const methodLabel = (v) => PAYMENT_METHODS.find((m) => m.value === v)?.label || null;
+
 const ITEM_CSV_COLS = [
   { key: 'item_name',       label: 'Item Name',   required: true, example: 'Shirt' },
   { key: 'size',            label: 'Size',         required: true, example: 'M' },
@@ -55,14 +65,14 @@ export default function AdminUniform() {
 
   // ── sell modal
   const [sellModal, setSellModal]   = useState(false);
-  const [sellForm, setSellForm]     = useState({ student_name: '', father_phone: '', admission_number: '', item_name: '', item_id: '', quantity: 1, discount: '', amount_paying: '' });
+  const [sellForm, setSellForm]     = useState({ student_name: '', father_phone: '', admission_number: '', item_name: '', item_id: '', quantity: 1, discount: '', amount_paying: '', payment_method: 'cash' });
   const [cart, setCart]             = useState([]); // multi-item sale lines: { item_id, item_name, size, price, quantity }
   const [sellSaving, setSellSaving] = useState(false);
   const [matched, setMatched]       = useState(null); // null=not checked, false=no match, object=found
 
   // ── payment modal
   const [payModal, setPayModal]     = useState(null);
-  const [payForm, setPayForm]       = useState({ amount: '', payment_date: today(), remarks: '' });
+  const [payForm, setPayForm]       = useState({ amount: '', payment_date: today(), remarks: '', payment_method: 'cash' });
   const [paySaving, setPaySaving]   = useState(false);
 
   const [toast, setToast] = useState(null);
@@ -221,6 +231,7 @@ export default function AdminUniform() {
         admission_number: sellForm.admission_number,
         discount: parseFloat(sellForm.discount) || 0,
         amount_paying: parseFloat(sellForm.amount_paying) || 0,
+        payment_method: sellForm.payment_method,
         items: cart.map((l) => ({ item_id: l.item_id, quantity: l.quantity })),
       });
       setTxns((prev) => [d.transaction, ...prev]);
@@ -230,7 +241,7 @@ export default function AdminUniform() {
   };
 
   // ── payment modal
-  const openPayModal = (txn) => { setPayModal(txn); setPayForm({ amount: '', payment_date: today(), remarks: '' }); };
+  const openPayModal = (txn) => { setPayModal(txn); setPayForm({ amount: '', payment_date: today(), remarks: '', payment_method: 'cash' }); };
   const payLeft = payModal ? payModal.left : 0;
 
   const handleAddPayment = async () => {
@@ -437,7 +448,7 @@ export default function AdminUniform() {
                   <Download className="w-4 h-4" /> Export CSV
                 </button>
                 <button
-                  onClick={() => { setSellForm({ student_name: '', father_phone: '', admission_number: '', item_name: '', item_id: '', quantity: 1, discount: '', amount_paying: '' }); setCart([]); setMatched(null); setSellModal(true); }}
+                  onClick={() => { setSellForm({ student_name: '', father_phone: '', admission_number: '', item_name: '', item_id: '', quantity: 1, discount: '', amount_paying: '', payment_method: 'cash' }); setCart([]); setMatched(null); setSellModal(true); }}
                   className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-all"
                 >
                   <ShoppingCart className="w-4 h-4" /> Sell Item
@@ -540,6 +551,7 @@ export default function AdminUniform() {
                               <span className="w-5 text-gray-400">{pi + 1}.</span>
                               <span className="font-semibold text-emerald-600">{fmt(p.amountPaid)}</span>
                               <span className="text-gray-400">{p.paymentDate}</span>
+                              {methodLabel(p.paymentMethod) && <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 text-[10px] font-semibold">{methodLabel(p.paymentMethod)}</span>}
                               {p.remarks && <span className="text-gray-400 italic">{p.remarks}</span>}
                             </div>
                           ))}
@@ -729,9 +741,17 @@ export default function AdminUniform() {
                     <span className="text-gray-500 font-medium">Amount to be paid</span>
                     <span className="font-bold text-gray-900 text-base">{fmt(toPay)}</span>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Paying Now (₹)</label>
-                    <input type="number" min="0" max={toPay} value={sellForm.amount_paying} onChange={(e) => setSellForm((f) => ({ ...f, amount_paying: e.target.value }))} placeholder="0" className={inputCls} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Paying Now (₹)</label>
+                      <input type="number" min="0" max={toPay} value={sellForm.amount_paying} onChange={(e) => setSellForm((f) => ({ ...f, amount_paying: e.target.value }))} placeholder="0" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Payment Method</label>
+                      <select value={sellForm.payment_method} onChange={(e) => setSellForm((f) => ({ ...f, payment_method: e.target.value }))} className={inputCls}>
+                        {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                      </select>
+                    </div>
                   </div>
                   <div className="flex justify-between text-sm pt-1 border-t border-brand-100">
                     <span className="text-gray-500">Left amount</span>
@@ -772,9 +792,17 @@ export default function AdminUniform() {
                   <span>Left: <span className="text-red-500">{fmt(payLeft)}</span></span>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Amount (₹) *</label>
-                <input type="number" min="1" max={payLeft} value={payForm.amount} onChange={(e) => setPayForm((f) => ({ ...f, amount: e.target.value }))} placeholder={`Max ${fmt(payLeft)}`} className={inputCls} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Amount (₹) *</label>
+                  <input type="number" min="1" max={payLeft} value={payForm.amount} onChange={(e) => setPayForm((f) => ({ ...f, amount: e.target.value }))} placeholder={`Max ${fmt(payLeft)}`} className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Payment Method</label>
+                  <select value={payForm.payment_method} onChange={(e) => setPayForm((f) => ({ ...f, payment_method: e.target.value }))} className={inputCls}>
+                    {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Payment Date</label>
