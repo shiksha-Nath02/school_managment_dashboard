@@ -1,11 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getClassWiseReport } from '@/services/feeService';
+import { useAuth } from '@/contexts/AuthContext';
 import { BarChart3, Loader2, Download } from 'lucide-react';
 
 const fmtMoney = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const filterCls = 'px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-brand-400 bg-white';
 
 const AdminFeeClasswise = () => {
+  const { user } = useAuth();
+  // Only superadmin sees money figures; a regular admin sees counts + % only.
+  const showMoney = user?.role === 'superadmin';
   const [report, setReport]       = useState([]);
   const [loading, setLoading]     = useState(true);
   const [filterStatus, setFilterStatus] = useState('all'); // 'all'|'good'|'average'|'poor'
@@ -71,29 +75,35 @@ const AdminFeeClasswise = () => {
           </h1>
           <p className="text-gray-400 text-sm mt-1">Fee collection overview for each class</p>
         </div>
-        <button onClick={exportCsv} className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">
-          <Download className="w-4 h-4" /> Export CSV
-        </button>
+        {showMoney && (
+          <button onClick={exportCsv} className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+        )}
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className={`grid gap-4 ${showMoney ? 'grid-cols-4' : 'grid-cols-1'}`}>
         <div className="bg-white border border-gray-200 rounded-2xl p-4">
           <div className="text-xs text-gray-400 mb-1">Total Students</div>
           <div className="text-xl font-bold text-gray-800 font-display">{totals.students}</div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-2xl p-4">
-          <div className="text-xs text-gray-400 mb-1">Expected</div>
-          <div className="text-xl font-bold text-gray-800 font-display">{fmtMoney(totals.expected)}</div>
-        </div>
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-          <div className="text-xs text-green-500 mb-1">Collected</div>
-          <div className="text-xl font-bold text-green-600 font-display">{fmtMoney(totals.collected)}</div>
-        </div>
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-          <div className="text-xs text-red-400 mb-1">Pending</div>
-          <div className="text-xl font-bold text-red-600 font-display">{fmtMoney(totals.pending)}</div>
-        </div>
+        {showMoney && (
+          <>
+            <div className="bg-white border border-gray-200 rounded-2xl p-4">
+              <div className="text-xs text-gray-400 mb-1">Expected</div>
+              <div className="text-xl font-bold text-gray-800 font-display">{fmtMoney(totals.expected)}</div>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
+              <div className="text-xs text-green-500 mb-1">Collected</div>
+              <div className="text-xl font-bold text-green-600 font-display">{fmtMoney(totals.collected)}</div>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+              <div className="text-xs text-red-400 mb-1">Pending</div>
+              <div className="text-xl font-bold text-red-600 font-display">{fmtMoney(totals.pending)}</div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Filter */}
@@ -134,7 +144,10 @@ const AdminFeeClasswise = () => {
           <table className="w-full">
             <thead className="bg-brand-50">
               <tr>
-                {['Class', 'Students', 'Expected', 'Collected', 'Pending', 'Collection %'].map(h => (
+                {(showMoney
+                  ? ['Class', 'Students', 'Expected', 'Collected', 'Pending', 'Collection %']
+                  : ['Class', 'Students', 'Collection %']
+                ).map(h => (
                   <th key={h} className={`px-4 py-3 text-xs font-semibold text-brand-500 uppercase ${
                     ['Students', 'Collection %'].includes(h) ? 'text-center'
                     : ['Expected', 'Collected', 'Pending'].includes(h) ? 'text-right'
@@ -150,11 +163,15 @@ const AdminFeeClasswise = () => {
                   <tr key={row.class_id} className={`border-t border-gray-100 ${i % 2 === 0 ? '' : 'bg-gray-50/30'}`}>
                     <td className="px-4 py-3 text-sm font-semibold text-gray-800 font-display">{row.class_name}</td>
                     <td className="px-4 py-3 text-sm text-center text-gray-600 tabular-nums">{row.student_count}</td>
-                    <td className="px-4 py-3 text-sm text-right text-gray-600 tabular-nums">{fmtMoney(row.total_expected)}</td>
-                    <td className="px-4 py-3 text-sm text-right font-semibold text-green-600 tabular-nums">{fmtMoney(row.total_collected)}</td>
-                    <td className="px-4 py-3 text-sm text-right font-semibold text-red-500 tabular-nums">
-                      {row.total_pending > 0 ? fmtMoney(row.total_pending) : '₹0'}
-                    </td>
+                    {showMoney && (
+                      <>
+                        <td className="px-4 py-3 text-sm text-right text-gray-600 tabular-nums">{fmtMoney(row.total_expected)}</td>
+                        <td className="px-4 py-3 text-sm text-right font-semibold text-green-600 tabular-nums">{fmtMoney(row.total_collected)}</td>
+                        <td className="px-4 py-3 text-sm text-right font-semibold text-red-500 tabular-nums">
+                          {row.total_pending > 0 ? fmtMoney(row.total_pending) : '₹0'}
+                        </td>
+                      </>
+                    )}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
