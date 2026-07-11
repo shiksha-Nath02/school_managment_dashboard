@@ -7,7 +7,7 @@ import ChangePasswordModal from '../common/ChangePasswordModal';
 import * as Icons from 'lucide-react';
 
 // Nav items only the super admin may see (regular admin loses these tabs).
-const SUPERADMIN_ONLY_KEYS = ['session', 'profit'];
+const SUPERADMIN_ONLY_KEYS = ['session', 'profit', 'teacher-attendance', 'teacher-attendance-report'];
 
 export default function Sidebar({ role, open = false, onClose = () => {} }) {
   const location = useLocation();

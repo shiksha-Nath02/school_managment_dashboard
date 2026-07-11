@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getStudentsWithDues } from '@/services/feeService';
+import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import { AlertCircle, Filter, Loader2, Download } from 'lucide-react';
 
@@ -7,6 +8,9 @@ const fmtMoney = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const filterCls = 'px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-brand-400 bg-white';
 
 const AdminFeeDues = () => {
+  const { user } = useAuth();
+  // Only superadmin sees the ₹ figures; a regular admin sees who owes, not amounts.
+  const showMoney = user?.role === 'superadmin';
   const [classes, setClasses]       = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [students, setStudents]     = useState([]);
@@ -69,17 +73,21 @@ const AdminFeeDues = () => {
           </h1>
           <p className="text-gray-400 text-sm mt-1">All students with pending fee payments</p>
         </div>
-        <button onClick={exportCsv} className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">
-          <Download className="w-4 h-4" /> Export CSV
-        </button>
+        {showMoney && (
+          <button onClick={exportCsv} className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+        )}
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
-          <div className="text-xs text-red-400 mb-1">{hasFilters ? 'Filtered' : 'Total'} Outstanding</div>
-          <div className="text-2xl font-bold text-red-600 font-display">{fmtMoney(totalDues)}</div>
-        </div>
+      <div className={`grid gap-4 ${showMoney ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {showMoney && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+            <div className="text-xs text-red-400 mb-1">{hasFilters ? 'Filtered' : 'Total'} Outstanding</div>
+            <div className="text-2xl font-bold text-red-600 font-display">{fmtMoney(totalDues)}</div>
+          </div>
+        )}
         <div className="bg-white border border-gray-200 rounded-2xl p-5">
           <div className="text-xs text-gray-400 mb-1">Students with Dues</div>
           <div className="text-2xl font-bold text-gray-800 font-display">
@@ -104,10 +112,12 @@ const AdminFeeDues = () => {
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Name / Adm No</label>
             <input value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} placeholder="Search…" className={`${filterCls} w-40`} />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Min Due (₹)</label>
-            <input type="number" min="0" value={filterMinDue} onChange={(e) => setFilterMinDue(e.target.value)} placeholder="0" className={`${filterCls} w-28`} />
-          </div>
+          {showMoney && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Min Due (₹)</label>
+              <input type="number" min="0" value={filterMinDue} onChange={(e) => setFilterMinDue(e.target.value)} placeholder="0" className={`${filterCls} w-28`} />
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Category</label>
             <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={filterCls}>
@@ -137,7 +147,10 @@ const AdminFeeDues = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                {['Adm No', 'Student', 'Class', 'Pending', 'Fine', 'Total Due', 'Last Payment'].map(h => (
+                {(showMoney
+                  ? ['Adm No', 'Student', 'Class', 'Pending', 'Fine', 'Total Due', 'Last Payment']
+                  : ['Adm No', 'Student', 'Class', 'Last Payment']
+                ).map(h => (
                   <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-400 uppercase ${['Pending', 'Fine', 'Total Due'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
                 ))}
               </tr>
@@ -148,9 +161,13 @@ const AdminFeeDues = () => {
                   <td className="px-4 py-3 font-mono text-xs font-bold text-brand-600">{item.id}</td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.name || `Student ${item.id}`}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{item.class || '–'}</td>
-                  <td className="px-4 py-3 text-sm text-right font-semibold text-red-500 tabular-nums">{fmtMoney(item.pending)}</td>
-                  <td className="px-4 py-3 text-sm text-right text-amber-500 tabular-nums">{item.fine > 0 ? fmtMoney(item.fine) : '—'}</td>
-                  <td className="px-4 py-3 text-sm text-right font-bold text-red-600 font-display tabular-nums">{fmtMoney(item.total_due)}</td>
+                  {showMoney && (
+                    <>
+                      <td className="px-4 py-3 text-sm text-right font-semibold text-red-500 tabular-nums">{fmtMoney(item.pending)}</td>
+                      <td className="px-4 py-3 text-sm text-right text-amber-500 tabular-nums">{item.fine > 0 ? fmtMoney(item.fine) : '—'}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-red-600 font-display tabular-nums">{fmtMoney(item.total_due)}</td>
+                    </>
+                  )}
                   <td className="px-4 py-3 text-sm text-gray-400">
                     {item.last_billing_month ? `${item.last_billing_month}/${item.last_billing_year}` : 'Never'}
                   </td>
