@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { recordBulkPayment, getStudentFeeDetails } from '@/services/feeService';
 import api from '@/services/api';
-import { Banknote, Save, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Banknote, Save, Loader2, CheckCircle, AlertTriangle, Shirt, BookOpen } from 'lucide-react';
+import UniformSellModal from '@/components/admin/UniformSellModal';
+import BookSellModal from '@/components/admin/BookSellModal';
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -19,6 +21,9 @@ const AdminFeeBulk = () => {
   const [results, setResults] = useState(null);
   const [nameFilter, setNameFilter] = useState('');
   const [admissionFilter, setAdmissionFilter] = useState('');
+  // Sell-item dialogs, so a teacher can sell uniform/books without leaving this tab.
+  const [uniformSellOpen, setUniformSellOpen] = useState(false);
+  const [bookSellOpen, setBookSellOpen] = useState(false);
 
   useEffect(() => {
     api.get('/admin/classes')
@@ -138,13 +143,29 @@ const AdminFeeBulk = () => {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 font-display flex items-center gap-2">
-          <Banknote className="w-6 h-6 text-brand-500" />
-          Bulk Payment Entry
-        </h1>
-        <p className="text-gray-400 text-sm mt-1">Record multiple payments at once for a class</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 font-display flex items-center gap-2">
+            <Banknote className="w-6 h-6 text-brand-500" />
+            Bulk Payment Entry
+          </h1>
+          <p className="text-gray-400 text-sm mt-1">Record multiple payments at once for a class</p>
+        </div>
+        {/* Quick sell buttons — same dialogs as the Uniform/Books tabs. */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => setUniformSellOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-brand-200 text-brand-600 rounded-xl text-sm font-semibold hover:bg-brand-50 transition-all">
+            <Shirt className="w-4 h-4" /> Sell Uniform
+          </button>
+          <button onClick={() => setBookSellOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-brand-200 text-brand-600 rounded-xl text-sm font-semibold hover:bg-brand-50 transition-all">
+            <BookOpen className="w-4 h-4" /> Sell Book
+          </button>
+        </div>
       </div>
+
+      <UniformSellModal open={uniformSellOpen} onClose={() => setUniformSellOpen(false)} showToast={showToast} />
+      <BookSellModal open={bookSellOpen} onClose={() => setBookSellOpen(false)} showToast={showToast} />
 
       {toast && (
         <div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium ${

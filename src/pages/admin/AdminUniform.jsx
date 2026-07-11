@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Package, ShoppingCart, Plus, X, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, IndianRupee, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
 import svc from '@/services/uniformService';
 import CsvModal from '@/components/common/CsvModal';
+import UniformSellModal from '@/components/admin/UniformSellModal';
 
 const ITEM_SUGGESTIONS = ['Shirt', 'Skirt', 'Pants', 'Blazer', 'Tie', 'Belt', 'Socks', 'Shoes', 'Sweater', 'Salwar'];
 const SIZE_SUGGESTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '28', '30', '32', '34', '36', '38'];
@@ -63,12 +64,8 @@ export default function AdminUniform() {
   const [filterStatus,    setFilterStatus]    = useState('all'); // 'all'|'pending'|'paid'
   const [filterCategory,  setFilterCategory]  = useState('');
 
-  // ── sell modal
+  // ── sell modal (dialog is a self-contained component; page only toggles it)
   const [sellModal, setSellModal]   = useState(false);
-  const [sellForm, setSellForm]     = useState({ student_name: '', father_phone: '', admission_number: '', item_name: '', item_id: '', quantity: 1, discount: '', amount_paying: '', payment_method: 'cash' });
-  const [cart, setCart]             = useState([]); // multi-item sale lines: { item_id, item_name, size, price, quantity }
-  const [sellSaving, setSellSaving] = useState(false);
-  const [matched, setMatched]       = useState(null); // null=not checked, false=no match, object=found
 
   // ── payment modal
   const [payModal, setPayModal]     = useState(null);
@@ -163,82 +160,8 @@ export default function AdminUniform() {
     catch (e) { showToast('error', e.response?.data?.message || 'Cannot delete'); }
   };
 
-  // ── sell modal
-  // Items come back flat (one row per item+size). Group by name for the
-  // cascading select: pick a name first, then its available sizes load.
-  const itemNames = [...new Set(items.map((i) => i.itemName))];
-  const sizesForItem = sellForm.item_name ? items.filter((i) => i.itemName === sellForm.item_name) : [];
-  const selectedItem = items.find((i) => i.id === parseInt(sellForm.item_id, 10)); // the line currently being added
-  const cartSubtotal = cart.reduce((s, l) => s + l.price * l.quantity, 0);
-  const gross     = cartSubtotal;
-  const discount  = Math.min(Math.max(parseFloat(sellForm.discount) || 0, 0), cartSubtotal); // clamp to [0, subtotal]
-  const toPay     = cartSubtotal - discount;
-  const payingNow = parseFloat(sellForm.amount_paying) || 0;
-  const leftNow   = Math.max(0, toPay - payingNow);
-
-  const addToCart = () => {
-    if (!selectedItem) { showToast('error', 'Choose an item and size'); return; }
-    const qty = parseInt(sellForm.quantity, 10) || 1;
-    if (qty <= 0) { showToast('error', 'Quantity must be at least 1'); return; }
-    const alreadyInCart = cart.filter((l) => l.item_id === selectedItem.id).reduce((s, l) => s + l.quantity, 0);
-    if (alreadyInCart + qty > selectedItem.unitsAvailable) {
-      showToast('error', `Only ${selectedItem.unitsAvailable} of ${selectedItem.itemName} (${selectedItem.size}) in stock`);
-      return;
-    }
-    setCart((prev) => {
-      const idx = prev.findIndex((l) => l.item_id === selectedItem.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = { ...next[idx], quantity: next[idx].quantity + qty };
-        return next;
-      }
-      return [...prev, {
-        item_id: selectedItem.id, item_name: selectedItem.itemName,
-        size: selectedItem.size, price: parseFloat(selectedItem.price), quantity: qty,
-      }];
-    });
-    setSellForm((f) => ({ ...f, item_name: '', item_id: '', quantity: 1 })); // reset line picker
-  };
-
-  const removeFromCart = (idx) => setCart((prev) => prev.filter((_, i) => i !== idx));
-
-  // Look up the student by admission number and auto-fill name + father's phone.
-  const lookupStudentDetails = async () => {
-    const adm = sellForm.admission_number.trim();
-    if (!adm) { setMatched(null); return; }
-    try {
-      const { student } = await svc.lookupStudent(adm);
-      if (student) {
-        setMatched(student);
-        setSellForm((f) => ({
-          ...f,
-          student_name: student.name || f.student_name,
-          father_phone: student.fatherPhone || f.father_phone,
-        }));
-      } else {
-        setMatched(false);
-      }
-    } catch { setMatched(null); }
-  };
-
-  const handleSell = async () => {
-    if (!sellForm.student_name || cart.length === 0) return showToast('error', 'Student name and at least one item are required');
-    setSellSaving(true);
-    try {
-      const d = await svc.sellItemsMulti({
-        student_name: sellForm.student_name,
-        father_phone: sellForm.father_phone,
-        admission_number: sellForm.admission_number,
-        discount: parseFloat(sellForm.discount) || 0,
-        amount_paying: parseFloat(sellForm.amount_paying) || 0,
-        payment_method: sellForm.payment_method,
-        items: cart.map((l) => ({ item_id: l.item_id, quantity: l.quantity })),
-      });
-      setTxns((prev) => [d.transaction, ...prev]);
-      setSellModal(false); loadItems(); showToast('success', 'Sale recorded');
-    } catch (e) { showToast('error', e.response?.data?.message || 'Failed to record sale'); }
-    finally { setSellSaving(false); }
-  };
+  // ── sell modal: on a successful sale, prepend the new txn and refresh stock.
+  const handleSold = (txn) => { setTxns((prev) => [txn, ...prev]); loadItems(); };
 
   // ── payment modal
   const openPayModal = (txn) => { setPayModal(txn); setPayForm({ amount: '', payment_date: today(), remarks: '', payment_method: 'cash' }); };
@@ -448,7 +371,7 @@ export default function AdminUniform() {
                   <Download className="w-4 h-4" /> Export CSV
                 </button>
                 <button
-                  onClick={() => { setSellForm({ student_name: '', father_phone: '', admission_number: '', item_name: '', item_id: '', quantity: 1, discount: '', amount_paying: '', payment_method: 'cash' }); setCart([]); setMatched(null); setSellModal(true); }}
+                  onClick={() => setSellModal(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-all"
                 >
                   <ShoppingCart className="w-4 h-4" /> Sell Item
@@ -649,126 +572,7 @@ export default function AdminUniform() {
       )}
 
       {/* ────── SELL ITEM MODAL ────── */}
-      {sellModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="font-display font-bold text-gray-900">Sell Uniform Items</h3>
-              <button onClick={() => setSellModal(false)}><X className="w-5 h-5 text-gray-400" /></button>
-            </div>
-            <div className="px-6 py-5 space-y-4 overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Student Name *</label>
-                  <input value={sellForm.student_name} onChange={(e) => setSellForm((f) => ({ ...f, student_name: e.target.value }))} placeholder="Full name" className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Father's Phone</label>
-                  <input value={sellForm.father_phone} onChange={(e) => setSellForm((f) => ({ ...f, father_phone: e.target.value }))} placeholder="9876543210" className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Admission Number</label>
-                  <input value={sellForm.admission_number}
-                    onChange={(e) => { setSellForm((f) => ({ ...f, admission_number: e.target.value })); setMatched(null); }}
-                    onBlur={lookupStudentDetails}
-                    placeholder="Type admission no, then Tab" className={inputCls} />
-                  {matched && <p className="mt-1 text-xs text-emerald-600">✓ {matched.name}{matched.className ? ` · ${matched.className}` : ''}</p>}
-                  {matched === false && <p className="mt-1 text-xs text-amber-600">No student matched — sale will be unlinked.</p>}
-                </div>
-              </div>
-              {/* Add-a-line picker: item → size → qty → Add */}
-              <div className="grid grid-cols-[1fr_1fr_4rem_auto] gap-2 items-end">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Item</label>
-                  <select value={sellForm.item_name} onChange={(e) => setSellForm((f) => ({ ...f, item_name: e.target.value, item_id: '' }))} className={inputCls}>
-                    <option value="">— Choose item —</option>
-                    {itemNames.map((name) => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Size</label>
-                  <select value={sellForm.item_id} onChange={(e) => setSellForm((f) => ({ ...f, item_id: e.target.value }))} disabled={!sellForm.item_name} className={inputCls}>
-                    <option value="">{sellForm.item_name ? '— Size —' : '— Item first —'}</option>
-                    {sizesForItem.map((i) => (
-                      <option key={i.id} value={i.id} disabled={i.unitsAvailable === 0}>
-                        {i.size} — {fmt(i.price)} {i.unitsAvailable === 0 ? '(Out)' : `(${i.unitsAvailable})`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Qty</label>
-                  <input type="number" min="1" value={sellForm.quantity} onChange={(e) => setSellForm((f) => ({ ...f, quantity: e.target.value }))} className={inputCls} />
-                </div>
-                <button type="button" onClick={addToCart} disabled={!sellForm.item_id}
-                  className="py-2.5 px-4 bg-brand-100 text-brand-700 rounded-xl text-sm font-semibold hover:bg-brand-200 disabled:opacity-40 whitespace-nowrap">
-                  + Add
-                </button>
-              </div>
-
-              {/* Cart lines */}
-              {cart.length > 0 && (
-                <div className="border border-gray-200 rounded-xl divide-y divide-gray-100">
-                  {cart.map((l, idx) => (
-                    <div key={`${l.item_id}-${idx}`} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <div className="min-w-0">
-                        <span className="font-medium text-gray-800">{l.item_name}</span>
-                        <span className="text-gray-400"> · Size {l.size}</span>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-gray-500">{fmt(l.price)} × {l.quantity}</span>
-                        <span className="font-semibold text-gray-800 w-20 text-right">{fmt(l.price * l.quantity)}</span>
-                        <button type="button" onClick={() => removeFromCart(idx)} className="text-gray-300 hover:text-red-500"><X className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {cart.length > 0 && (
-                <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 font-medium">Subtotal ({cart.reduce((s, l) => s + l.quantity, 0)} items)</span>
-                    <span className="font-semibold text-gray-700">{fmt(gross)}</span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Discount (₹)</label>
-                    <input type="number" min="0" max={gross} value={sellForm.discount} onChange={(e) => setSellForm((f) => ({ ...f, discount: e.target.value, amount_paying: '' }))} placeholder="0" className={inputCls} />
-                  </div>
-                  <div className="flex justify-between text-sm pt-1 border-t border-brand-100">
-                    <span className="text-gray-500 font-medium">Amount to be paid</span>
-                    <span className="font-bold text-gray-900 text-base">{fmt(toPay)}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Paying Now (₹)</label>
-                      <input type="number" min="0" max={toPay} value={sellForm.amount_paying} onChange={(e) => setSellForm((f) => ({ ...f, amount_paying: e.target.value }))} placeholder="0" className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Payment Method</label>
-                      <select value={sellForm.payment_method} onChange={(e) => setSellForm((f) => ({ ...f, payment_method: e.target.value }))} className={inputCls}>
-                        {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-sm pt-1 border-t border-brand-100">
-                    <span className="text-gray-500">Left amount</span>
-                    <span className={`font-bold text-base ${leftNow === 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmt(leftNow)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="flex gap-3 px-6 pb-6">
-              <button onClick={handleSell} disabled={sellSaving || cart.length === 0} className="flex-1 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 disabled:opacity-50 flex items-center justify-center gap-2">
-                {sellSaving && <Loader2 className="w-4 h-4 animate-spin" />} Confirm Sale
-              </button>
-              <button onClick={() => setSellModal(false)} className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <UniformSellModal open={sellModal} onClose={() => setSellModal(false)} onSold={handleSold} showToast={showToast} />
 
       {/* ────── ADD PAYMENT MODAL ────── */}
       {payModal && (
