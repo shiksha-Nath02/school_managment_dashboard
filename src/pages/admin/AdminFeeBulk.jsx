@@ -69,7 +69,7 @@ const AdminFeeBulk = () => {
 
       setStudents(enriched);
       const payMap = {};
-      enriched.forEach(s => { payMap[s.id] = { amount: '', previous_dues: '', adm_discount: '', adm_pay: '', payment_method: 'cash' }; });
+      enriched.forEach(s => { payMap[s.id] = { amount: '', previous_dues: '', advance: '', adm_discount: '', adm_pay: '', payment_method: 'cash' }; });
       setPayments(payMap);
     } catch (err) {
       console.error(err);
@@ -94,18 +94,20 @@ const AdminFeeBulk = () => {
     const hasAdmDisc = (v) => v.adm_discount !== '' && v.adm_discount != null;
     const paymentsList = Object.entries(payments)
       .filter(([_, v]) => (parseFloat(v.amount) || 0) > 0 || (parseFloat(v.previous_dues) || 0) > 0
+                          || (parseFloat(v.advance) || 0) > 0
                           || (parseFloat(v.adm_pay) || 0) > 0 || hasAdmDisc(v))
       .map(([studentId, v]) => ({
         student_id: parseInt(studentId),
         amount: parseFloat(v.amount) || 0,
         previous_dues: parseFloat(v.previous_dues) || 0,
+        advance: parseFloat(v.advance) || 0,
         adm_pay: parseFloat(v.adm_pay) || 0,
         adm_discount: hasAdmDisc(v) ? parseFloat(v.adm_discount) || 0 : '',
         payment_method: v.payment_method,
       }));
 
     if (paymentsList.length === 0) {
-      showToast('error', 'Enter at least one payment, previous dues, or admission fee');
+      showToast('error', 'Enter at least one payment, previous dues, advance, or admission fee');
       return;
     }
 
@@ -129,9 +131,11 @@ const AdminFeeBulk = () => {
 
   const totalBeingPaid = Object.values(payments).reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
   const totalPrevDues  = Object.values(payments).reduce((sum, p) => sum + (parseFloat(p.previous_dues) || 0), 0);
+  const totalAdvance   = Object.values(payments).reduce((sum, p) => sum + (parseFloat(p.advance) || 0), 0);
   const totalAdmPay    = Object.values(payments).reduce((sum, p) => sum + (parseFloat(p.adm_pay) || 0), 0);
   const payingCount = Object.values(payments).filter(p =>
-    (parseFloat(p.amount) || 0) > 0 || (parseFloat(p.previous_dues) || 0) > 0 || (parseFloat(p.adm_pay) || 0) > 0
+    (parseFloat(p.amount) || 0) > 0 || (parseFloat(p.previous_dues) || 0) > 0 || (parseFloat(p.advance) || 0) > 0
+    || (parseFloat(p.adm_pay) || 0) > 0
     || (p.adm_discount !== '' && p.adm_discount != null)).length;
 
   const norm = (v) => (v ?? '').toString().toLowerCase().trim();
@@ -226,6 +230,7 @@ const AdminFeeBulk = () => {
           <div className="text-sm text-brand-500">
             <strong>{payingCount}</strong> student{payingCount !== 1 ? 's' : ''} &nbsp;·&nbsp; Collecting: <strong>₹{totalBeingPaid.toLocaleString()}</strong>
             {totalPrevDues > 0 && <> &nbsp;·&nbsp; <span className="text-amber-600">Prev dues added: ₹{totalPrevDues.toLocaleString()}</span></>}
+            {totalAdvance > 0 && <> &nbsp;·&nbsp; <span className="text-green-600">Advance credit: ₹{totalAdvance.toLocaleString()}</span></>}
             {totalAdmPay > 0 && <> &nbsp;·&nbsp; <span className="text-brand-600">Admission: ₹{totalAdmPay.toLocaleString()}</span></>}
           </div>
           <button
@@ -256,7 +261,7 @@ const AdminFeeBulk = () => {
           <table className="w-full min-w-[1100px]">
             <thead className="bg-brand-50">
               <tr>
-                {['Roll', 'Admission No.', 'Student Name', 'Pending', 'Previous Dues', 'Amount (₹)', 'New Pending', 'Adm Fee', 'Adm Disc', 'Adm Pay', 'Method', 'Status'].map((h) => (
+                {['Roll', 'Admission No.', 'Student Name', 'Pending', 'Previous Dues', 'Advance', 'Amount (₹)', 'New Pending', 'Adm Fee', 'Adm Disc', 'Adm Pay', 'Method', 'Status'].map((h) => (
                   <th key={h} className={`px-4 py-3 text-xs font-semibold text-brand-500 uppercase ${(h === 'Pending' || h === 'New Pending') ? 'text-right' : h === 'Status' ? 'text-center' : 'text-left'}`}>
                     {h}
                   </th>
@@ -268,8 +273,9 @@ const AdminFeeBulk = () => {
                 const pay = payments[student.id] || {};
                 const result = results?.find(r => r.student_id === student.id);
                 const prevDues = parseFloat(pay.previous_dues) || 0;
+                const advance = parseFloat(pay.advance) || 0;
                 const amt = parseFloat(pay.amount) || 0;
-                const newPending = (student.currentPending || 0) + prevDues - amt;
+                const newPending = (student.currentPending || 0) + prevDues - advance - amt;
                 const adm = student.admission;
                 const admDiscTyped = pay.adm_discount !== '' && pay.adm_discount != null;
                 const admEffDisc = admDiscTyped ? (parseFloat(pay.adm_discount) || 0) : (adm ? adm.discount : 0);
@@ -309,6 +315,17 @@ const AdminFeeBulk = () => {
                     <td className="px-4 py-3">
                       <input
                         type="number"
+                        value={pay.advance || ''}
+                        onChange={(e) => handlePaymentChange(student.id, 'advance', e.target.value)}
+                        placeholder="0"
+                        disabled={!!results}
+                        title="Advance credit paid ahead before the ledger started (added once). Lowers dues; NOT counted as income."
+                        className="w-24 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none disabled:bg-gray-50"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="number"
                         value={pay.amount || ''}
                         onChange={(e) => handlePaymentChange(student.id, 'amount', e.target.value)}
                         placeholder="0"
@@ -319,7 +336,7 @@ const AdminFeeBulk = () => {
                     <td className={`px-4 py-3 text-sm text-right font-semibold tabular-nums ${
                       newPending > 0 ? 'text-red-500' : newPending < 0 ? 'text-green-600' : 'text-gray-400'
                     }`}>
-                      {(prevDues > 0 || amt > 0) ? `₹${Math.abs(newPending).toLocaleString()}${newPending < 0 ? ' cr' : ''}` : '—'}
+                      {(prevDues > 0 || advance > 0 || amt > 0) ? `₹${Math.abs(newPending).toLocaleString()}${newPending < 0 ? ' cr' : ''}` : '—'}
                     </td>
                     <td className="px-4 py-3 text-xs whitespace-nowrap">
                       {!adm ? <span className="text-gray-300">—</span>
