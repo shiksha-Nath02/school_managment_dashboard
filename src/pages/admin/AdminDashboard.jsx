@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import dashboardService from '../../services/dashboardService';
+import { useAuth } from '../../contexts/AuthContext';
 
 // ₹ formatting — compact lakhs for large amounts, plain for small.
 function formatCurrency(value) {
@@ -23,6 +24,9 @@ const ATTENDANCE_BADGE = {
 };
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
+  // Only superadmin sees money figures; a regular admin sees counts only.
+  const showMoney = user?.role === 'superadmin';
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -46,8 +50,11 @@ export default function AdminDashboard() {
   const cards = [
     { icon: '🎓', val: stats ? stats.totalStudents.toLocaleString('en-IN') : '—', label: 'Total Students', bg: 'bg-student-50 text-student-500' },
     { icon: '📚', val: stats ? stats.totalTeachers.toLocaleString('en-IN') : '—', label: 'Total Teachers', bg: 'bg-teacher-50 text-teacher-500' },
-    { icon: '💰', val: stats ? formatCurrency(stats.feeCollectedMonth) : '—', label: 'Fee Collected (Month)', bg: 'bg-gold-light text-gold' },
-    { icon: '📈', val: stats ? formatCurrency(stats.netProfitMonth) : '—', label: 'Net Profit (Month)', bg: 'bg-green-50 text-green-600' },
+    // Money cards are superadmin-only.
+    ...(showMoney ? [
+      { icon: '💰', val: stats ? formatCurrency(stats.feeCollectedMonth) : '—', label: 'Fee Collected (Month)', bg: 'bg-gold-light text-gold' },
+      { icon: '📈', val: stats ? formatCurrency(stats.netProfitMonth) : '—', label: 'Net Profit (Month)', bg: 'bg-green-50 text-green-600' },
+    ] : []),
   ];
 
   return (
@@ -83,20 +90,20 @@ export default function AdminDashboard() {
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-300 pb-3">Student</th>
-                  <th className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-300 pb-3">Amount</th>
+                  {showMoney && <th className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-300 pb-3">Amount</th>}
                   <th className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-300 pb-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {loading ? (
-                  <tr><td colSpan={3} className="py-6 text-center text-sm text-gray-400">Loading…</td></tr>
+                  <tr><td colSpan={showMoney ? 3 : 2} className="py-6 text-center text-sm text-gray-400">Loading…</td></tr>
                 ) : !data?.recentPayments?.length ? (
-                  <tr><td colSpan={3} className="py-6 text-center text-sm text-gray-400">No recent payments</td></tr>
+                  <tr><td colSpan={showMoney ? 3 : 2} className="py-6 text-center text-sm text-gray-400">No recent payments</td></tr>
                 ) : (
                   data.recentPayments.map((r) => (
                     <tr key={r.id} className="hover:bg-surface-alt/50 transition-colors">
                       <td className="py-3.5 text-sm font-medium">{r.name}</td>
-                      <td className="py-3.5 text-sm text-gray-500">{formatCurrency(r.amount)}</td>
+                      {showMoney && <td className="py-3.5 text-sm text-gray-500">{formatCurrency(r.amount)}</td>}
                       <td className="py-3.5">
                         <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold ${PAYMENT_BADGE[r.status] || 'bg-gray-100 text-gray-500'}`}>
                           {r.status}
