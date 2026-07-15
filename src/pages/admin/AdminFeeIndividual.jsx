@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getStudentFeeDetails, recordPayment, reversePayment, getActiveSession, updateSessionFees } from '@/services/feeService';
 import api from '@/services/api';
-import { Receipt, Search, CreditCard, Undo2, Loader2, User, IndianRupee, Download, Upload, Pencil } from 'lucide-react';
+import { Receipt, Search, Undo2, Loader2, User, Download, Upload, Pencil } from 'lucide-react';
 import CsvModal from '@/components/common/CsvModal';
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -18,25 +18,33 @@ const BULK_CSV_COLS = [
 
 const filterCls = 'px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-brand-400 bg-white';
 
+const rupee = (n) => `₹${(Number(n) || 0).toLocaleString('en-IN')}`;
+const fmtDate = (d) => d
+  ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  : '—';
+const fmtDateTime = (d) => d
+  ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  : '—';
+
+// visual tag per transaction type
+const TYPE_TAG = {
+  payment:   { label: 'Payment',      cls: 'bg-brand-50 text-brand-600' },
+  advance:   { label: 'Advance',      cls: 'bg-blue-50 text-blue-600' },
+  prevdues:  { label: 'Previous dues', cls: 'bg-amber-50 text-amber-700' },
+  reversal:  { label: 'Reversal',     cls: 'bg-red-50 text-red-600' },
+  admission: { label: 'Admission',    cls: 'bg-purple-50 text-purple-600' },
+};
+
 const AdminFeeIndividual = () => {
   const [searchQuery, setSearchQuery]   = useState('');
+  const [classFilter, setClassFilter]   = useState('');
+  const [classes, setClasses]           = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [feeData, setFeeData]           = useState(null);
   const [loading, setLoading]           = useState(false);
   const [toast, setToast]               = useState(null);
   const [csvOpen, setCsvOpen]           = useState(false);
-
-  const [payForm, setPayForm] = useState({
-    amount: '',
-    payment_date: new Date().toISOString().split('T')[0],
-    payment_method: 'cash',
-    billing_month: new Date().getMonth() + 1,
-    billing_year: new Date().getFullYear(),
-    include_fine: false,
-    remarks: '',
-  });
-  const [paying, setPaying] = useState(false);
 
   const [reversalTarget, setReversalTarget] = useState(null);
   const [reversalReason, setReversalReason] = useState('');
@@ -47,21 +55,31 @@ const AdminFeeIndividual = () => {
   const [feeForm, setFeeForm] = useState({ monthly_fee: '', discount: '', discount_reason: '' });
   const [savingFee, setSavingFee] = useState(false);
 
-  // ── payment history filters
+  // ── transaction log filters
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo,   setFilterDateTo]   = useState('');
   const [filterMethod,   setFilterMethod]   = useState('');
   const [filterStatus,   setFilterStatus]   = useState('all'); // 'all'|'active'|'reversed'
 
   useEffect(() => {
+    api.get('/admin/classes')
+      .then(res => setClasses(res.data.classes || res.data || []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
-      if (!searchQuery || searchQuery.length < 2) { setSearchResults([]); return; }
-      api.get(`/admin/students?search=${encodeURIComponent(searchQuery)}`)
+      const hasSearch = searchQuery && searchQuery.length >= 2;
+      if (!hasSearch && !classFilter) { setSearchResults([]); return; }
+      const params = new URLSearchParams();
+      if (hasSearch)   params.set('search', searchQuery);
+      if (classFilter) params.set('class_id', classFilter);
+      api.get(`/admin/students?${params.toString()}`)
         .then(res => setSearchResults(res.data.students || res.data || []))
         .catch(() => {});
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, classFilter]);
 
   useEffect(() => {
     getActiveSession()
@@ -84,28 +102,6 @@ const AdminFeeIndividual = () => {
   const showToast = (type, message) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 4000);
-  };
-
-  const handlePay = async () => {
-    if (!payForm.amount || parseFloat(payForm.amount) <= 0) { showToast('error', 'Enter a valid amount'); return; }
-    setPaying(true);
-    try {
-      const res = await recordPayment({
-        student_id: selectedStudent.id,
-        amount: parseFloat(payForm.amount),
-        payment_date: payForm.payment_date,
-        payment_method: payForm.payment_method,
-        billing_month: parseInt(payForm.billing_month),
-        billing_year: parseInt(payForm.billing_year),
-        include_fine: payForm.include_fine,
-        remarks: payForm.remarks,
-      });
-      showToast('success', `Payment recorded! Receipt: ${res.data.receipt_number}`);
-      setPayForm(prev => ({ ...prev, amount: '', remarks: '' }));
-      const refreshed = await getStudentFeeDetails(selectedStudent.id);
-      setFeeData(refreshed.data);
-    } catch (err) { showToast('error', err.response?.data?.message || 'Failed to record payment'); }
-    setPaying(false);
   };
 
   const handleReversal = async () => {
@@ -168,41 +164,82 @@ const AdminFeeIndividual = () => {
     });
   };
 
-  // ── filtered payments
-  const allPayments = feeData?.payments || [];
-  const filteredPayments = useMemo(() => allPayments.filter((p) => {
-    const d = p.payment_date?.split('T')[0] || '';
-    if (filterDateFrom && d < filterDateFrom)                                        return false;
-    if (filterDateTo   && d > filterDateTo)                                          return false;
-    if (filterMethod   && p.payment_method !== filterMethod)                         return false;
-    if (filterStatus === 'active'   &&  p.is_reversed)                              return false;
-    if (filterStatus === 'reversed' && !p.is_reversed)                              return false;
+  // ── unified fee transaction log (fee_payments rows + admission-fee rows)
+  const allEntries = useMemo(() => {
+    const feeEntries = (feeData?.payments || [])
+      // keep only rows that represent a real entry (drop ₹0 auto-billed placeholder months)
+      .filter(p => p.amount_paid > 0 || p.fine_amount > 0 || p.adjustment > 0 || p.advance > 0 || p.is_reversal)
+      .map(p => {
+        let type = 'payment';
+        if (p.is_reversal) type = 'reversal';
+        else if (p.advance > 0 && p.amount_paid === 0 && p.adjustment === 0) type = 'advance';
+        else if (p.adjustment > 0 && p.amount_paid === 0 && p.advance === 0) type = 'prevdues';
+        return {
+          key: `f${p.id}`, kind: 'fee', raw: p, type,
+          entered_at: p.created_at,
+          payment_date: p.payment_date,
+          detail: p.billing_month ? `${MONTH_NAMES[p.billing_month]} ${p.billing_year}` : 'Fee',
+          paid: p.amount_paid, fine: p.fine_amount, prev_dues: p.adjustment, advance: p.advance,
+          pending_after: p.pending_after,
+          method: p.payment_method, receipt: p.receipt_number,
+          is_reversal: p.is_reversal, is_system: p.is_system_generated,
+        };
+      });
+
+    const admEntries = (feeData?.admissionPayments || [])
+      .filter(a => a.paid_amount > 0 || a.annual_charge > 0 || a.discount > 0)
+      .map(a => ({
+        key: `a${a.id}`, kind: 'admission', raw: a, type: 'admission',
+        entered_at: a.created_at,
+        payment_date: null,
+        detail: `Admission fee${a.session_name ? ` · ${a.session_name}` : ''}`,
+        paid: a.paid_amount, fine: 0, prev_dues: 0, advance: 0, discount: a.discount,
+        pending_after: undefined,
+        method: null, receipt: null,
+        is_reversal: false, is_system: false,
+      }));
+
+    return [...feeEntries, ...admEntries].sort((x, y) => {
+      const dx = x.entered_at ? new Date(x.entered_at).getTime() : 0;
+      const dy = y.entered_at ? new Date(y.entered_at).getTime() : 0;
+      return dx - dy;
+    });
+  }, [feeData]);
+
+  const filteredEntries = useMemo(() => allEntries.filter((e) => {
+    const raw = e.payment_date || e.entered_at || '';
+    const d = typeof raw === 'string' ? raw.split('T')[0] : '';
+    if (filterDateFrom && d && d < filterDateFrom)      return false;
+    if (filterDateTo   && d && d > filterDateTo)        return false;
+    if (filterMethod   && e.method !== filterMethod)    return false;
+    if (filterStatus === 'active'   &&  e.is_reversal)  return false;
+    if (filterStatus === 'reversed' && !e.is_reversal)  return false;
     return true;
-  }), [allPayments, filterDateFrom, filterDateTo, filterMethod, filterStatus]);
+  }), [allEntries, filterDateFrom, filterDateTo, filterMethod, filterStatus]);
 
   const hasFilters = filterDateFrom || filterDateTo || filterMethod || filterStatus !== 'all';
 
-  const exportPaymentsCsv = () => {
-    const header = ['Adm No', 'Student', 'Date', 'Receipt', 'Month', 'Paid', 'Fine', 'Pending After', 'Method', 'Status'];
-    const rows   = filteredPayments.map((p) => [
-      selectedStudent?.id,
-      `"${feeData?.student?.user?.name || ''}"`,
-      p.payment_date?.split('T')[0] || '',
-      p.receipt_number,
-      p.billing_month ? `${MONTH_NAMES[p.billing_month]} ${p.billing_year}` : '',
-      p.amount || 0, p.fine_amount || 0, p.pending_after || 0,
-      p.payment_method,
-      p.is_reversed ? 'Reversed' : 'Active',
+  const exportCsv = () => {
+    const header = ['Entered On', 'Payment Date', 'Details', 'Type', 'Paid', 'Fine', 'Previous Dues', 'Advance', 'Pending After', 'Method', 'Receipt'];
+    const rows   = filteredEntries.map((e) => [
+      `"${fmtDateTime(e.entered_at)}"`,
+      e.payment_date ? fmtDate(e.payment_date) : '',
+      `"${e.detail}"`,
+      TYPE_TAG[e.type]?.label || e.type,
+      e.paid || 0, e.fine || 0, e.prev_dues || 0, e.advance || 0,
+      e.pending_after !== undefined ? e.pending_after : '',
+      e.method || '',
+      e.receipt || '',
     ]);
     const csv  = [header, ...rows].map((r) => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url  = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'fee-payments.csv'; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = 'fee-transactions.csv'; a.click();
     URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       <CsvModal
         open={csvOpen}
         onClose={() => setCsvOpen(false)}
@@ -218,7 +255,7 @@ const AdminFeeIndividual = () => {
           <h1 className="text-2xl font-bold text-gray-800 font-display flex items-center gap-2">
             <Receipt className="w-6 h-6 text-brand-500" /> Individual Fee Management
           </h1>
-          <p className="text-gray-400 text-sm mt-1">Search for a student to view fee details and record payments</p>
+          <p className="text-gray-400 text-sm mt-1">Search for a student to view their fee transaction log</p>
         </div>
         <button onClick={() => setCsvOpen(true)} className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">
           <Upload className="w-4 h-4" /> Bulk Upload Payments
@@ -231,15 +268,16 @@ const AdminFeeIndividual = () => {
         }`}>{toast.message}</div>
       )}
 
-      {/* Search */}
-      <div className="relative mb-6">
-        <div className="flex items-center bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm">
-          <Search className="w-5 h-5 text-gray-300 mr-3 shrink-0" />
-          <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search student by name…"
-            className="flex-1 text-sm outline-none text-gray-800 placeholder:text-gray-300" />
-        </div>
-        {searchResults.length > 0 && (
+      {/* Search + class filter */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <div className="flex items-center bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm">
+            <Search className="w-5 h-5 text-gray-300 mr-3 shrink-0" />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name or admission number…"
+              className="flex-1 text-sm outline-none text-gray-800 placeholder:text-gray-300" />
+          </div>
+          {searchResults.length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-lg z-10 max-h-60 overflow-y-auto">
             {searchResults.map(s => (
               <button key={s.id} onClick={() => selectStudent(s)}
@@ -257,7 +295,15 @@ const AdminFeeIndividual = () => {
               </button>
             ))}
           </div>
-        )}
+          )}
+        </div>
+        <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)}
+          className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm text-sm text-gray-700 outline-none focus:border-brand-400 sm:w-56">
+          <option value="">All classes</option>
+          {classes.map(c => (
+            <option key={c.id} value={c.id}>Class {c.class_name}-{c.section}</option>
+          ))}
+        </select>
       </div>
 
       {!selectedStudent && !loading && (
@@ -279,11 +325,9 @@ const AdminFeeIndividual = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white border border-gray-200 rounded-2xl p-4">
               <div className="text-xs text-gray-400 mb-1">Student</div>
-              <div className="text-sm font-semibold text-gray-800 font-display truncate">{feeData.student?.user?.name}</div>
+              <div className="text-sm font-semibold text-gray-800 font-display truncate">{feeData.student?.name}</div>
               <div className="text-xs text-brand-500 font-bold mt-0.5">Adm #{selectedStudent.id}</div>
-              <div className="text-xs text-gray-400 mt-0.5">
-                Class {feeData.student?.class?.class_name}-{feeData.student?.class?.section}
-              </div>
+              <div className="text-xs text-gray-400 mt-0.5">Class {feeData.student?.class}</div>
             </div>
             <div className="bg-white border border-gray-200 rounded-2xl p-4">
               <div className="flex items-center justify-between mb-1">
@@ -319,77 +363,15 @@ const AdminFeeIndividual = () => {
             </div>
           </div>
 
-          {/* Record Payment */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
-            <h3 className="text-sm font-semibold text-gray-800 font-display mb-4 flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-brand-500" /> Record Payment
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Amount (₹)</label>
-                <input type="number" value={payForm.amount} placeholder="0"
-                  onChange={(e) => setPayForm(prev => ({ ...prev, amount: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Payment Date</label>
-                <input type="date" value={payForm.payment_date}
-                  onChange={(e) => setPayForm(prev => ({ ...prev, payment_date: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Method</label>
-                <select value={payForm.payment_method}
-                  onChange={(e) => setPayForm(prev => ({ ...prev, payment_method: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none">
-                  <option value="cash">Cash</option>
-                  <option value="upi">UPI</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="online">Online</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Billing Month</label>
-                <div className="flex gap-1">
-                  <select value={payForm.billing_month}
-                    onChange={(e) => setPayForm(prev => ({ ...prev, billing_month: e.target.value }))}
-                    className="flex-1 px-2 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 outline-none">
-                    {MONTH_NAMES.slice(1).map((m, i) => (
-                      <option key={i + 1} value={i + 1}>{m}</option>
-                    ))}
-                  </select>
-                  <input type="number" value={payForm.billing_year}
-                    onChange={(e) => setPayForm(prev => ({ ...prev, billing_year: e.target.value }))}
-                    className="w-20 px-2 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 outline-none" />
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 mb-4">
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
-                <input type="checkbox" checked={payForm.include_fine}
-                  onChange={(e) => setPayForm(prev => ({ ...prev, include_fine: e.target.checked }))}
-                  className="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
-                Include fine (₹{feeData.fine?.fine || 0})
-              </label>
-              <input type="text" value={payForm.remarks} placeholder="Remarks (optional)"
-                onChange={(e) => setPayForm(prev => ({ ...prev, remarks: e.target.value }))}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 outline-none" />
-            </div>
-            <button onClick={handlePay} disabled={paying}
-              className="flex items-center gap-2 px-6 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-colors disabled:opacity-50 shadow-lg shadow-brand-500/20">
-              {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <IndianRupee className="w-4 h-4" />}
-              {paying ? 'Recording...' : 'Record Payment'}
-            </button>
-          </div>
-
-          {/* Payment History */}
+          {/* Fee Transaction Log */}
           <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-            {/* history header + filters */}
             <div className="px-5 py-4 border-b border-gray-100 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-800 font-display">Payment History</h3>
-                <button onClick={exportPaymentsCsv} className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-all">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-800 font-display">Fee Transactions</h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Every fee-related entry — payments, fines, previous dues, advance & admission fee. Advance & previous dues adjust the balance but are not counted as income.</p>
+                </div>
+                <button onClick={exportCsv} className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-all shrink-0">
                   <Download className="w-3.5 h-3.5" /> Export CSV
                 </button>
               </div>
@@ -429,58 +411,64 @@ const AdminFeeIndividual = () => {
                 )}
                 {hasFilters && (
                   <span className="text-xs text-gray-400 self-end pb-1">
-                    {filteredPayments.length} of {allPayments.length} records
+                    {filteredEntries.length} of {allEntries.length} records
                   </span>
                 )}
               </div>
             </div>
 
-            {!filteredPayments.length ? (
+            {!filteredEntries.length ? (
               <div className="p-10 text-center text-gray-400">
-                {allPayments.length === 0 ? 'No payment records yet' : 'No records match the current filters'}
+                {allEntries.length === 0 ? 'No fee transactions yet' : 'No records match the current filters'}
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      {['Adm No', 'Date', 'Receipt', 'Month', 'Paid', 'Fine', 'Pending After', 'Method', ''].map(h => (
-                        <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-400 uppercase ${['Paid', 'Fine', 'Pending After'].includes(h) ? 'text-right' : 'text-left'}`}>
+                      {['Entered On', 'Payment Date', 'Details', 'Type', 'Paid', 'Fine', 'Prev Dues', 'Advance', 'Pending After', 'Method', ''].map(h => (
+                        <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap ${['Paid', 'Fine', 'Prev Dues', 'Advance', 'Pending After'].includes(h) ? 'text-right' : 'text-left'}`}>
                           {h}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPayments.map((p, i) => (
-                      <tr key={p.id} className={`border-b border-gray-50 last:border-0 ${p.is_reversed ? 'opacity-50' : ''} ${i % 2 === 0 ? '' : 'bg-gray-50/40'}`}>
-                        <td className="px-4 py-3 font-mono text-xs font-bold text-brand-600">{selectedStudent.id}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {new Date(p.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-mono text-gray-500">{p.receipt_number}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {p.billing_month ? `${MONTH_NAMES[p.billing_month]} ${p.billing_year}` : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-800 text-right">₹{p.amount?.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-sm text-amber-600 text-right">{p.fine_amount > 0 ? `₹${p.fine_amount}` : '—'}</td>
-                        <td className={`px-4 py-3 text-sm font-semibold text-right ${p.pending_after > 0 ? 'text-red-500' : p.pending_after < 0 ? 'text-green-600' : 'text-gray-500'}`}>
-                          {p.pending_after !== undefined ? `₹${Math.abs(p.pending_after).toLocaleString()}` : '—'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full capitalize">{p.payment_method}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {!p.is_reversed ? (
-                            <button onClick={() => setReversalTarget(p)} className="text-red-400 hover:text-red-600 transition-colors" title="Reverse payment">
-                              <Undo2 className="w-4 h-4" />
-                            </button>
-                          ) : (
-                            <span className="text-xs text-red-400 font-medium">Reversed</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredEntries.map((e, i) => {
+                      const tag = TYPE_TAG[e.type] || TYPE_TAG.payment;
+                      return (
+                        <tr key={e.key} className={`border-b border-gray-50 last:border-0 ${e.is_reversal ? 'opacity-60' : ''} ${i % 2 === 0 ? '' : 'bg-gray-50/40'}`}>
+                          <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{fmtDateTime(e.entered_at)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{fmtDate(e.payment_date)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                            {e.detail}
+                            {e.receipt && <span className="block text-[11px] font-mono text-gray-400">{e.receipt}</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-full ${tag.cls}`}>{tag.label}</span>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-semibold text-gray-800 text-right whitespace-nowrap">{e.paid > 0 ? rupee(e.paid) : '—'}</td>
+                          <td className="px-4 py-3 text-sm text-amber-600 text-right whitespace-nowrap">{e.fine > 0 ? rupee(e.fine) : '—'}</td>
+                          <td className="px-4 py-3 text-sm text-amber-700 text-right whitespace-nowrap">{e.prev_dues > 0 ? rupee(e.prev_dues) : '—'}</td>
+                          <td className="px-4 py-3 text-sm text-blue-600 text-right whitespace-nowrap">{e.advance > 0 ? rupee(e.advance) : '—'}</td>
+                          <td className={`px-4 py-3 text-sm font-semibold text-right whitespace-nowrap ${e.pending_after > 0 ? 'text-red-500' : e.pending_after < 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                            {e.pending_after !== undefined ? rupee(Math.abs(e.pending_after)) : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full capitalize whitespace-nowrap">{e.method || '—'}</span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {e.kind === 'fee' && !e.is_reversal && !e.is_system ? (
+                              <button onClick={() => setReversalTarget(e.raw)} className="text-red-400 hover:text-red-600 transition-colors" title="Reverse payment">
+                                <Undo2 className="w-4 h-4" />
+                              </button>
+                            ) : e.is_reversal ? (
+                              <span className="text-xs text-red-400 font-medium">Reversed</span>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -497,7 +485,7 @@ const AdminFeeIndividual = () => {
               {activeConfig ? 'Edit Fee' : 'Assign Fee'}
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              {feeData?.student?.user?.name}{activeSession ? ` · ${activeSession.name} session` : ''}
+              {feeData?.student?.name}{activeSession ? ` · ${activeSession.name} session` : ''}
             </p>
             <div className="space-y-3">
               <div>
@@ -544,7 +532,7 @@ const AdminFeeIndividual = () => {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-bold text-gray-800 font-display mb-2">Reverse Payment</h3>
             <p className="text-sm text-gray-500 mb-4">
-              Reversing <strong>₹{reversalTarget.amount?.toLocaleString()}</strong> — Receipt <strong>{reversalTarget.receipt_number}</strong>
+              Reversing <strong>₹{Number(reversalTarget.amount_paid || 0).toLocaleString()}</strong> — Receipt <strong>{reversalTarget.receipt_number}</strong>
             </p>
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-500 mb-1">Reason for reversal</label>
