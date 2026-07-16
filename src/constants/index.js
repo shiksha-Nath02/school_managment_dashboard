@@ -162,6 +162,7 @@ export const SIDEBAR_NAV = {
         { key: 'fee-bulk', label: 'Bulk Payment', icon: 'Banknote', path: '/admin/fee-bulk' },
         { key: 'fee-dues', label: 'Students with Dues', icon: 'AlertTriangle', path: '/admin/fee-dues' },
         { key: 'fee-classwise', label: 'Class-wise Report', icon: 'ClipboardList', path: '/admin/fee-classwise' },
+        { key: 'transactions', label: 'Transactions', icon: 'ArrowLeftRight', path: '/admin/transactions' },
         { key: 'profit', label: 'Profit', icon: 'TrendingUp', path: '/admin/profit' },
         { key: 'staff', label: 'Staff', icon: 'Users', path: '/admin/staff' },
       ],
