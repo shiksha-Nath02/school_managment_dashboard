@@ -51,6 +51,7 @@ import AdminStaff from './pages/admin/AdminStaff';
 import AdminEnquiries from './pages/admin/AdminEnquiries';
 import AdminTeacherAttendanceReport from './pages/admin/AdminTeacherAttendanceReport';
 import AdminFeeBulk from './pages/admin/AdminFeeBulk';
+import AdminTransactions from './pages/admin/AdminTransactions';
 import AdminStudentsPage from './pages/admin/AdminStudents';
 import AdminTeachersPage from './pages/admin/AdminTeachers';
 import AdminAddTeacherPage from './pages/admin/AdminAddTeacher';
@@ -120,6 +121,7 @@ export default function App() {
         <Route path="fee-dues" element={<AdminFeeDues />} />
         <Route path="fee-classwise" element={<AdminFeeClasswise />} />
         <Route path="profit" element={<AdminProfit />} />
+        <Route path="transactions" element={<AdminTransactions />} />
         <Route path="uniform" element={<AdminUniform />} />
         <Route path="books" element={<AdminBooks />} />
         <Route path="expenditure" element={<AdminExpenditure />} />

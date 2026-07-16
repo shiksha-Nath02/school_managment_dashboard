@@ -27,6 +27,8 @@ export const getClassWiseReport = (params) => api.get('/admin/fees/classwise', {
 export const getProfit = (from, to) => api.get('/admin/profit', { params: { from, to } });
 export const getPaymentLog = (params) => api.get('/admin/payment-log', { params });
 export const addPaymentLogEntry = (data) => api.post('/admin/payment-log', data);
+// Consolidated, date-filtered, server-paginated transaction ledger.
+export const getTransactions = (params) => api.get('/admin/transactions', { params });
 
 // ===== STUDENT PORTAL — /student/fee-history =====
 export const getOwnFees = () => api.get('/student/fee-history');
