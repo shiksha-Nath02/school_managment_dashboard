@@ -37,6 +37,7 @@ const TYPE_TAG = {
 
 const AdminFeeIndividual = () => {
   const [searchQuery, setSearchQuery]   = useState('');
+  const [admSearch, setAdmSearch]       = useState('');
   const [classFilter, setClassFilter]   = useState('');
   const [classes, setClasses]           = useState([]);
   const [searchResults, setSearchResults] = useState([]);
@@ -69,17 +70,23 @@ const AdminFeeIndividual = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const hasSearch = searchQuery && searchQuery.length >= 2;
-      if (!hasSearch && !classFilter) { setSearchResults([]); return; }
+      const nameQ = searchQuery.trim();
+      const admQ  = admSearch.trim();
+      const hasName = nameQ.length >= 2;
+      const hasAdm  = admQ.length >= 1;
+      if (!hasName && !hasAdm && !classFilter) { setSearchResults([]); return; }
       const params = new URLSearchParams();
-      if (hasSearch)   params.set('search', searchQuery);
-      if (classFilter) params.set('class_id', classFilter);
+      // Admission number is the more precise filter, so it wins when both are typed.
+      // The backend `search` param matches admission_number (LIKE) OR name.
+      if (hasAdm)       params.set('search', admQ);
+      else if (hasName) params.set('search', nameQ);
+      if (classFilter)  params.set('class_id', classFilter);
       api.get(`/admin/students?${params.toString()}`)
         .then(res => setSearchResults(res.data.students || res.data || []))
         .catch(() => {});
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, classFilter]);
+  }, [searchQuery, admSearch, classFilter]);
 
   useEffect(() => {
     getActiveSession()
@@ -90,6 +97,7 @@ const AdminFeeIndividual = () => {
   const selectStudent = async (student) => {
     setSelectedStudent(student);
     setSearchQuery('');
+    setAdmSearch('');
     setSearchResults([]);
     setLoading(true);
     try {
@@ -288,7 +296,7 @@ const AdminFeeIndividual = () => {
                 <div>
                   <div className="text-sm font-medium text-gray-800">{s.user?.name || s.name}</div>
                   <div className="text-xs text-gray-400">
-                    Adm No: {s.admission_number || s.id} · {s.user?.email || s.email}
+                    Adm No: {s.admission_number || '—'} · {s.user?.email || s.email}
                     {s.class && ` · Class ${s.class.class_name}-${s.class.section}`}
                   </div>
                 </div>
@@ -297,6 +305,9 @@ const AdminFeeIndividual = () => {
           </div>
           )}
         </div>
+        <input type="text" value={admSearch} onChange={(e) => setAdmSearch(e.target.value)}
+          placeholder="Admission No…"
+          className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm text-sm text-gray-800 outline-none focus:border-brand-400 placeholder:text-gray-300 sm:w-44" />
         <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)}
           className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm text-sm text-gray-700 outline-none focus:border-brand-400 sm:w-56">
           <option value="">All classes</option>
@@ -326,7 +337,7 @@ const AdminFeeIndividual = () => {
             <div className="bg-white border border-gray-200 rounded-2xl p-4">
               <div className="text-xs text-gray-400 mb-1">Student</div>
               <div className="text-sm font-semibold text-gray-800 font-display truncate">{feeData.student?.name}</div>
-              <div className="text-xs text-brand-500 font-bold mt-0.5">Adm No: {selectedStudent.admission_number || selectedStudent.id}</div>
+              <div className="text-xs text-brand-500 font-bold mt-0.5">Adm No: {feeData.student?.admission_number || selectedStudent.admission_number || '—'}</div>
               <div className="text-xs text-gray-400 mt-0.5">Class {feeData.student?.class}</div>
             </div>
             <div className="bg-white border border-gray-200 rounded-2xl p-4">
