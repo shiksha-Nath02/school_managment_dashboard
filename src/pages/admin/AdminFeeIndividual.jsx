@@ -288,7 +288,7 @@ const AdminFeeIndividual = () => {
                 <div>
                   <div className="text-sm font-medium text-gray-800">{s.user?.name || s.name}</div>
                   <div className="text-xs text-gray-400">
-                    Adm #{s.id} · {s.user?.email || s.email}
+                    Adm No: {s.admission_number || s.id} · {s.user?.email || s.email}
                     {s.class && ` · Class ${s.class.class_name}-${s.class.section}`}
                   </div>
                 </div>
@@ -326,7 +326,7 @@ const AdminFeeIndividual = () => {
             <div className="bg-white border border-gray-200 rounded-2xl p-4">
               <div className="text-xs text-gray-400 mb-1">Student</div>
               <div className="text-sm font-semibold text-gray-800 font-display truncate">{feeData.student?.name}</div>
-              <div className="text-xs text-brand-500 font-bold mt-0.5">Adm #{selectedStudent.id}</div>
+              <div className="text-xs text-brand-500 font-bold mt-0.5">Adm No: {selectedStudent.admission_number || selectedStudent.id}</div>
               <div className="text-xs text-gray-400 mt-0.5">Class {feeData.student?.class}</div>
             </div>
             <div className="bg-white border border-gray-200 rounded-2xl p-4">
