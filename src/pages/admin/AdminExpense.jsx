@@ -3,6 +3,7 @@ import { Plus, Trash2, Loader2, CheckCircle2, AlertCircle, X, IndianRupee, Downl
 import svc from '@/services/expenseService';
 import staffSvc from '@/services/staffService';
 import CsvModal from '@/components/common/CsvModal';
+import HandoverPanel from '@/components/admin/HandoverPanel';
 
 // Expenditure reasons. The key is the stored category; label/icon are for display.
 const REASONS = [
@@ -30,11 +31,12 @@ const fmtDate   = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-d
 const fmtMoney  = (n) => `₹${parseFloat(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 export default function AdminExpenditure() {
+  const [view, setView]         = useState('expenses'); // 'expenses' | 'handover'
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [modal, setModal]       = useState(false);
   const [csvOpen, setCsvOpen]   = useState(false);
-  const [form, setForm]         = useState({ reason: 'stationary', description: '', amount: '', date: today(), payeeKey: '', gross: '', penalty: '' });
+  const [form, setForm]         = useState({ reason: 'stationary', description: '', amount: '', date: today(), method: 'cash', payeeKey: '', gross: '', penalty: '' });
   const [saving, setSaving]     = useState(false);
   const [toast, setToast]       = useState(null);
   const [payees, setPayees]     = useState([]);
@@ -84,7 +86,7 @@ export default function AdminExpenditure() {
   useEffect(() => { setPage(1); }, [filterReason, filterFrom, filterTo]);
 
   const openModal = () => {
-    setForm({ reason: 'stationary', description: '', amount: '', date: today(), payeeKey: '', gross: '', penalty: '' });
+    setForm({ reason: 'stationary', description: '', amount: '', date: today(), method: 'cash', payeeKey: '', gross: '', penalty: '' });
     setModal(true);
   };
 
@@ -110,6 +112,7 @@ export default function AdminExpenditure() {
           category: 'salary',
           date: form.date,
           amount: finalAmount,
+          payment_method: form.method,
           gross_amount: parseFloat(form.gross) || 0,
           deduction: parseFloat(form.penalty) || 0,
           teacher_id: selectedPayee.type === 'teacher' ? selectedPayee.id : undefined,
@@ -119,7 +122,7 @@ export default function AdminExpenditure() {
       } else {
         if (!form.description?.trim()) { setSaving(false); return showToast('error', 'Description is required'); }
         if (!form.amount || parseFloat(form.amount) <= 0) { setSaving(false); return showToast('error', 'Enter a valid amount'); }
-        payload = { category: form.reason, description: form.description.trim(), amount: parseFloat(form.amount), date: form.date };
+        payload = { category: form.reason, description: form.description.trim(), amount: parseFloat(form.amount), date: form.date, payment_method: form.method };
       }
       await svc.addExpense(payload);
       setModal(false);
@@ -188,18 +191,30 @@ export default function AdminExpenditure() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={exportCsv} className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">
-            <Download className="w-4 h-4" /> Export CSV
-          </button>
-          <button onClick={() => setCsvOpen(true)} className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">
-            <Upload className="w-4 h-4" /> Import CSV
-          </button>
-          <button onClick={openModal} className="flex items-center gap-2 bg-brand-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-brand-600 hover:-translate-y-0.5 transition-all shadow-lg shadow-brand-500/20">
-            <Plus size={16} /> Add Expense
-          </button>
+          <div className="flex bg-gray-100 rounded-xl p-1 mr-1">
+            <button onClick={() => setView('expenses')} className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${view === 'expenses' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Expenses</button>
+            <button onClick={() => setView('handover')} className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${view === 'handover' ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Handover</button>
+          </div>
+          {view === 'expenses' && (
+            <>
+              <button onClick={exportCsv} className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">
+                <Download className="w-4 h-4" /> Export CSV
+              </button>
+              <button onClick={() => setCsvOpen(true)} className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">
+                <Upload className="w-4 h-4" /> Import CSV
+              </button>
+              <button onClick={openModal} className="flex items-center gap-2 bg-brand-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-brand-600 hover:-translate-y-0.5 transition-all shadow-lg shadow-brand-500/20">
+                <Plus size={16} /> Add Expense
+              </button>
+            </>
+          )}
         </div>
       </div>
 
+      {view === 'handover' && <HandoverPanel />}
+
+      {view === 'expenses' && (
+      <>
       {/* Total card */}
       <div className="bg-brand-50 border border-brand-500/20 rounded-2xl p-5 flex items-center gap-4">
         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-brand-500/20">
@@ -294,6 +309,8 @@ export default function AdminExpenditure() {
           </div>
         </div>
       )}
+      </>
+      )}
 
       {/* Add Expense Modal */}
       {modal && (
@@ -308,6 +325,13 @@ export default function AdminExpenditure() {
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason <span className="text-red-400">*</span></label>
                 <select value={form.reason} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} className={inputCls}>
                   {REASONS.map((r) => <option key={r.key} value={r.key}>{r.icon} {r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Paid via</label>
+                <select value={form.method} onChange={(e) => setForm((f) => ({ ...f, method: e.target.value }))} className={inputCls}>
+                  <option value="cash">Cash</option>
+                  <option value="online">Online</option>
                 </select>
               </div>
               {isSalary ? (
