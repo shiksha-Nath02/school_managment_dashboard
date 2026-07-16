@@ -50,9 +50,9 @@ const AdminFeeDues = () => {
   const clearFilters = () => { setFilterSearch(''); setFilterMinDue(''); setFilterCategory(''); };
 
   const exportCsv = () => {
-    const header = ['Adm No', 'Student Name', 'Class', 'Pending', 'Fine', 'Total Due', 'Last Payment'];
+    const header = ['Adm No', 'Student Name', 'Class', 'Phone', 'Pending', 'Fine', 'Total Due', 'Last Payment'];
     const rows   = filteredStudents.map((s) => [
-      s.id, `"${s.name || ''}"`, `"${s.class || ''}"`,
+      s.id, `"${s.name || ''}"`, `"${s.class || ''}"`, `"${s.father_phone || ''}"`,
       s.pending || 0, s.fine || 0, s.total_due || 0,
       s.last_billing_month ? `${s.last_billing_month}/${s.last_billing_year}` : 'Never',
     ]);
@@ -148,8 +148,8 @@ const AdminFeeDues = () => {
             <thead className="bg-gray-50">
               <tr>
                 {(showMoney
-                  ? ['Adm No', 'Student', 'Class', 'Pending', 'Fine', 'Total Due', 'Last Payment']
-                  : ['Adm No', 'Student', 'Class', 'Last Payment']
+                  ? ['Adm No', 'Student', 'Class', 'Phone', 'Pending', 'Fine', 'Total Due', 'Last Payment']
+                  : ['Adm No', 'Student', 'Class', 'Phone', 'Last Payment']
                 ).map(h => (
                   <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-400 uppercase ${['Pending', 'Fine', 'Total Due'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
                 ))}
@@ -161,6 +161,11 @@ const AdminFeeDues = () => {
                   <td className="px-4 py-3 font-mono text-xs font-bold text-brand-600">{item.id}</td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.name || `Student ${item.id}`}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{item.class || '–'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                    {item.father_phone
+                      ? <a href={`tel:${item.father_phone}`} className="hover:text-brand-600">{item.father_phone}</a>
+                      : '—'}
+                  </td>
                   {showMoney && (
                     <>
                       <td className="px-4 py-3 text-sm text-right font-semibold text-red-500 tabular-nums">{fmtMoney(item.pending)}</td>
