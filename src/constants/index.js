@@ -1,12 +1,16 @@
 // ===== MARKS / EXAM CONSTANTS =====
+// The report card is built from these four: Term 1 (FA-1, SA-1) + Term 2 (FA-2, SA-2).
 export const EXAM_TYPES = [
-  { value: 'class_test', label: 'Class Test' },
-  { value: 'ut1', label: 'Unit Test 1' },
-  { value: 'ut2', label: 'Unit Test 2' },
-  { value: 'ut3', label: 'Unit Test 3' },
-  { value: 'ut4', label: 'Unit Test 4' },
-  { value: 'midterm', label: 'Midterm' },
-  { value: 'final', label: 'Final Exam' },
+  { value: 'FA-1', label: 'FA-1' },
+  { value: 'SA-1', label: 'SA-1' },
+  { value: 'FA-2', label: 'FA-2' },
+  { value: 'SA-2', label: 'SA-2' },
+];
+
+// Report-card column layout: Term 1 = FA-1 + SA-1, Term 2 = FA-2 + SA-2.
+export const REPORT_TERMS = [
+  { term: 'Term 1', exams: ['FA-1', 'SA-1'] },
+  { term: 'Term 2', exams: ['FA-2', 'SA-2'] },
 ];
 
 export const GRADE_COLORS = {
@@ -145,6 +149,8 @@ export const SIDEBAR_NAV = {
         { key: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', path: '/admin' },
         { key: 'students', label: 'Students', icon: 'GraduationCap', path: '/admin/students' },
         { key: 'teachers', label: 'Teachers', icon: 'BookOpen', path: '/admin/teachers' },
+        { key: 'reports', label: 'Student Reports', icon: 'FileText', path: '/admin/reports' },
+        { key: 'student-attendance', label: 'Student Attendance', icon: 'CalendarCheck', path: '/admin/student-attendance' },
         { key: 'enquiries', label: 'Enquiries', icon: 'Inbox', path: '/admin/enquiries' },
       ],
     },

@@ -57,6 +57,8 @@ import AdminTeachersPage from './pages/admin/AdminTeachers';
 import AdminAddTeacherPage from './pages/admin/AdminAddTeacher';
 import AdminRemoveStudentPage from './pages/admin/AdminRemoveStudent';
 import AdminWebsite from './pages/admin/AdminWebsite';
+import AdminReports from './pages/admin/AdminReports';
+import AdminStudentAttendance from './pages/admin/AdminStudentAttendance';
 
 export default function App() {
   return (
@@ -114,6 +116,8 @@ export default function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="students" element={<AdminStudentsPage />} />
         <Route path="teachers" element={<AdminTeachersPage />} />
+        <Route path="reports" element={<AdminReports />} />
+        <Route path="student-attendance" element={<AdminStudentAttendance />} />
         <Route path="teacher-attendance" element={<AdminTeacherAttendance />} />
         <Route path="teacher-attendance-report" element={<AdminTeacherAttendanceReport />} />
         <Route path="fee-individual" element={<AdminFeeIndividual />} />
