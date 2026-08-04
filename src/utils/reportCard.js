@@ -289,7 +289,9 @@ const STYLES = `
     body { background: #fff; }
     .toolbar { display: none; }
     .sheet { margin: 0; max-width: none; }
-    .card { width: 100%; min-height: 277mm; margin: 0; padding: 12mm; page-break-after: always; }
+    /* min-height a few mm UNDER the printable area (297 - 2*10 = 277mm) so
+       rounding never spills a card onto a blank second page. */
+    .card { width: 100%; min-height: 272mm; margin: 0; padding: 12mm; page-break-after: always; page-break-inside: avoid; }
     .card:last-child { page-break-after: auto; }
     @page { size: A4; margin: 10mm; }
   }
