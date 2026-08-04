@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Pencil, X, Check, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Pencil, X, Check, Loader2, AlertCircle, CheckCircle2, Download } from 'lucide-react';
 import svc from '@/services/teacherAttendanceService';
 
 const STATUS_OPTIONS = [
@@ -29,6 +29,47 @@ const STATUS_CONFIG = {
 };
 
 const LEAVE_LABELS = { casual: 'Casual', sick: 'Sick', earned: 'Earned', unpaid: 'Unpaid' };
+const LEAVE_CODE = { casual: 'CL', sick: 'SL', earned: 'EL', unpaid: 'UL' };
+
+// Per-day cell codes/colours for the monthly register grid.
+const DAY_CODE = {
+  present:       { code: 'P',  cls: 'bg-emerald-100 text-emerald-700' },
+  late:          { code: 'LT', cls: 'bg-amber-100 text-amber-700' },
+  half_day:      { code: 'HD', cls: 'bg-orange-100 text-orange-700' },
+  absent:        { code: 'A',  cls: 'bg-red-100 text-red-600' },
+  on_leave:      { code: 'L',  cls: 'bg-blue-100 text-blue-700' },
+  official_duty: { code: 'OD', cls: 'bg-purple-100 text-purple-700' },
+};
+
+// Compact "9:05a" from "09:05:00".
+const shortTime = (t) => {
+  if (!t) return '';
+  const [h, m] = t.split(':');
+  const hr = parseInt(h);
+  return `${hr % 12 || 12}:${m}${hr >= 12 ? 'p' : 'a'}`;
+};
+
+// One cell in the monthly grid: in/out times for present/late days, else a status code.
+const renderDayCell = (rec) => {
+  if (!rec) return <span className="text-gray-200">·</span>;
+  if (rec.status === 'present' || rec.status === 'late') {
+    const inT = shortTime(rec.checkInTime);
+    const outT = shortTime(rec.checkOutTime);
+    if (!inT && !outT) {
+      const dc = DAY_CODE[rec.status];
+      return <span className={`inline-block px-1 rounded text-[10px] font-bold ${dc.cls}`}>{dc.code}</span>;
+    }
+    return (
+      <div className="leading-tight">
+        <div className={`text-[10px] font-semibold ${rec.status === 'late' ? 'text-amber-700' : 'text-emerald-700'}`}>{inT || '—'}</div>
+        <div className="text-[10px] text-gray-400">{outT || '—'}</div>
+      </div>
+    );
+  }
+  const dc = DAY_CODE[rec.status] || { code: rec.status, cls: 'bg-gray-100 text-gray-600' };
+  const label = rec.status === 'on_leave' ? (LEAVE_CODE[rec.leaveType] || 'L') : dc.code;
+  return <span className={`inline-block px-1 rounded text-[10px] font-bold ${dc.cls}`}>{label}</span>;
+};
 
 const formatTime = (t) => {
   if (!t) return '—';
@@ -52,6 +93,7 @@ export default function AdminTeacherAttendanceReport() {
   const [teachers, setTeachers] = useState([]);
   const [records, setRecords] = useState([]); // flat array for date view
   const [summary, setSummary] = useState([]); // for monthly view
+  const [daysInMonth, setDaysInMonth] = useState(31);
 
   const [loadingDate, setLoadingDate] = useState(false);
   const [loadingMonthly, setLoadingMonthly] = useState(false);
@@ -91,7 +133,7 @@ export default function AdminTeacherAttendanceReport() {
     if (view !== 'monthly') return;
     setLoadingMonthly(true);
     svc.getMonthlySummary(selectedMonth, selectedYear)
-      .then((d) => setSummary(d.summary || []))
+      .then((d) => { setSummary(d.summary || []); setDaysInMonth(d.daysInMonth || 31); })
       .catch(() => showToastMsg('error', 'Failed to load summary'))
       .finally(() => setLoadingMonthly(false));
   }, [view, selectedMonth, selectedYear]);
@@ -143,6 +185,40 @@ export default function AdminTeacherAttendanceReport() {
   records.forEach((r) => { recordMap[r.teacherId] = r; });
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => todayYear - i);
+
+  // Days 1..N for the monthly grid columns.
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const dowOf = (d) => new Date(selectedYear, selectedMonth - 1, d).getDay(); // 0=Sun
+
+  const exportGridCsv = () => {
+    const dayHeaders = days.map((d) => String(d));
+    const header = ['Teacher', 'Subject', 'Present', 'Late', 'Half Day', 'Leave', 'Absent', 'Official Duty', 'Total', ...dayHeaders];
+    const rows = summary.map((row) => {
+      const dayCells = days.map((d) => {
+        const rec = row.days?.[d];
+        if (!rec) return '';
+        if (rec.status === 'present' || rec.status === 'late') {
+          return `${rec.checkInTime || ''}${rec.checkOutTime ? ' - ' + rec.checkOutTime : ''}`.trim();
+        }
+        if (rec.status === 'on_leave') return LEAVE_CODE[rec.leaveType] || 'L';
+        return DAY_CODE[rec.status]?.code || rec.status;
+      });
+      return [
+        `"${(row.teacherName || '').replace(/"/g, '""')}"`,
+        `"${(row.subject || '').replace(/"/g, '""')}"`,
+        row.present, row.late, row.half_day, row.on_leave, row.absent, row.official_duty, row.total,
+        ...dayCells,
+      ];
+    });
+    const csv = [header, ...rows].map((r) => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `teacher-attendance-${MONTHS[selectedMonth - 1]}-${selectedYear}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
@@ -383,51 +459,87 @@ export default function AdminTeacherAttendanceReport() {
         </div>
       )}
 
-      {/* ── MONTHLY SUMMARY ── */}
+      {/* ── MONTHLY REGISTER GRID ── */}
       {view === 'monthly' && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h2 className="font-display font-bold text-gray-900">{MONTHS[selectedMonth - 1]} {selectedYear} — Summary</h2>
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="font-display font-bold text-gray-900">{MONTHS[selectedMonth - 1]} {selectedYear} — Register</h2>
+              <p className="text-xs text-gray-400 mt-0.5">In / out time per day, with monthly totals. Scroll right for all dates.</p>
+            </div>
+            <button
+              onClick={exportGridCsv}
+              disabled={summary.length === 0}
+              className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-all disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" /> Export CSV
+            </button>
+          </div>
+
+          {/* Legend */}
+          <div className="px-6 py-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 border-b border-gray-50">
+            <span><b className="text-emerald-700">9:05a</b> / <b className="text-gray-400">4:30p</b> = in / out</span>
+            <span><b className="text-orange-700">HD</b> half day</span>
+            <span><b className="text-blue-700">CL/SL/EL/UL</b> leave</span>
+            <span><b className="text-red-600">A</b> absent</span>
+            <span><b className="text-purple-700">OD</b> official duty</span>
+            <span><b className="text-amber-700">LT</b> late</span>
           </div>
 
           {loadingMonthly ? (
             <div className="p-12 flex justify-center"><Loader2 className="w-6 h-6 text-brand-500 animate-spin" /></div>
+          ) : summary.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-12">No teachers found</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="text-sm border-collapse">
                 <thead>
-                  <tr className="bg-gray-50/70 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                    <th className="px-6 py-3 text-left">Teacher</th>
-                    <th className="px-4 py-3 text-center">Present</th>
-                    <th className="px-4 py-3 text-center">Late</th>
-                    <th className="px-4 py-3 text-center">Half Day</th>
-                    <th className="px-4 py-3 text-center">Absent</th>
-                    <th className="px-4 py-3 text-center">On Leave</th>
-                    <th className="px-4 py-3 text-center">Official Duty</th>
-                    <th className="px-6 py-3 text-center">Total Days</th>
+                  <tr className="bg-gray-50/70 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                    <th className="px-3 py-2 text-left sticky left-0 bg-gray-50 z-20 min-w-[150px]">Teacher</th>
+                    <th className="px-1.5 py-2 text-center" title="Present">P</th>
+                    <th className="px-1.5 py-2 text-center" title="Late">LT</th>
+                    <th className="px-1.5 py-2 text-center" title="Half Day">HD</th>
+                    <th className="px-1.5 py-2 text-center" title="Leave">Lv</th>
+                    <th className="px-1.5 py-2 text-center" title="Absent">A</th>
+                    <th className="px-1.5 py-2 text-center" title="Official Duty">OD</th>
+                    <th className="px-1.5 py-2 text-center border-r border-gray-200" title="Total marked days">Tot</th>
+                    {days.map((d) => {
+                      const weekend = dowOf(d) === 0;
+                      return (
+                        <th key={d} className={`px-1 py-2 text-center min-w-[44px] ${weekend ? 'bg-rose-50 text-rose-400' : ''}`}>
+                          <div>{d}</div>
+                          <div className="font-normal text-[9px]">{['S', 'M', 'T', 'W', 'T', 'F', 'S'][dowOf(d)]}</div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {summary.map((row) => (
-                    <tr key={row.teacherId} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-3.5">
-                        <p className="font-semibold text-gray-900">{row.teacherName}</p>
-                        <p className="text-xs text-gray-400">{row.subject || '—'}</p>
+                    <tr key={row.teacherId} className="hover:bg-gray-50/40 transition-colors">
+                      <td className="px-3 py-2 sticky left-0 bg-white z-10 min-w-[150px] border-r border-gray-100">
+                        <p className="font-semibold text-gray-900 text-xs truncate max-w-[140px]">{row.teacherName}</p>
+                        <p className="text-[10px] text-gray-400 truncate max-w-[140px]">{row.subject || '—'}</p>
                       </td>
-                      <td className="px-4 py-3.5 text-center"><span className="font-bold text-emerald-700">{row.present}</span></td>
-                      <td className="px-4 py-3.5 text-center"><span className="font-bold text-amber-700">{row.late}</span></td>
-                      <td className="px-4 py-3.5 text-center"><span className="font-bold text-orange-700">{row.half_day}</span></td>
-                      <td className="px-4 py-3.5 text-center"><span className="font-bold text-red-600">{row.absent}</span></td>
-                      <td className="px-4 py-3.5 text-center"><span className="font-bold text-blue-700">{row.on_leave}</span></td>
-                      <td className="px-4 py-3.5 text-center"><span className="font-bold text-purple-700">{row.official_duty}</span></td>
-                      <td className="px-6 py-3.5 text-center"><span className="font-bold text-gray-900">{row.total}</span></td>
+                      <td className="px-1.5 py-2 text-center text-xs font-bold text-emerald-700">{row.present || ''}</td>
+                      <td className="px-1.5 py-2 text-center text-xs font-bold text-amber-700">{row.late || ''}</td>
+                      <td className="px-1.5 py-2 text-center text-xs font-bold text-orange-700">{row.half_day || ''}</td>
+                      <td className="px-1.5 py-2 text-center text-xs font-bold text-blue-700">{row.on_leave || ''}</td>
+                      <td className="px-1.5 py-2 text-center text-xs font-bold text-red-600">{row.absent || ''}</td>
+                      <td className="px-1.5 py-2 text-center text-xs font-bold text-purple-700">{row.official_duty || ''}</td>
+                      <td className="px-1.5 py-2 text-center text-xs font-bold text-gray-900 border-r border-gray-200">{row.total || ''}</td>
+                      {days.map((d) => {
+                        const weekend = dowOf(d) === 0;
+                        return (
+                          <td key={d} className={`px-1 py-1.5 text-center ${weekend ? 'bg-rose-50/40' : ''}`}>
+                            {renderDayCell(row.days?.[d])}
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {summary.length === 0 && (
-                <p className="text-center text-gray-400 text-sm py-12">No attendance records for this month</p>
-              )}
             </div>
           )}
         </div>

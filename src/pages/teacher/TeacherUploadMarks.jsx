@@ -169,7 +169,7 @@ function SubjectMultiSelect({ subjects, selected, onChange }) {
 const TeacherUploadMarks = () => {
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
-  const [examType, setExamType] = useState('ut1');
+  const [examType, setExamType] = useState('FA-1');
   const [subjects, setSubjects] = useState([]);
   const [singleSubject, setSingleSubject] = useState('');   // for 'single' mode
   const [selectedSubjects, setSelectedSubjects] = useState([]); // for 'multi' mode
@@ -627,7 +627,7 @@ const TeacherUploadMarks = () => {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {histSubjects.map(subj => {
-                      const isActive = examType === et && selectedSubject === subj && mode === 'single';
+                      const isActive = examType === et && singleSubject === subj && mode === 'single';
                       return (
                         <button
                           key={subj}
