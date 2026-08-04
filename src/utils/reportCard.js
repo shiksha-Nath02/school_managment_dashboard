@@ -250,9 +250,10 @@ const STYLES = `
   .toolbar button { background: #fff; color: #5B3A8C; border: 0; border-radius: 8px;
              padding: 8px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
   .toolbar .hint { font-size: 12px; opacity: .9; }
-  .sheet { max-width: 800px; margin: 16px auto; }
-  .card { background: #fff; border: 1px solid #333; padding: 22px 26px; margin: 0 auto 16px;
-          width: 800px; }
+  .sheet { max-width: 210mm; margin: 16px auto; }
+  .card { background: #fff; border: 1px solid #333; padding: 14mm; margin: 0 auto 16px;
+          width: 210mm; min-height: 297mm; box-sizing: border-box;
+          display: flex; flex-direction: column; }
   .hdr { display: flex; align-items: center; gap: 16px; border-bottom: 2px solid #333;
          padding-bottom: 10px; }
   .hdr .logo { width: 64px; height: 64px; object-fit: contain; }
@@ -281,14 +282,16 @@ const STYLES = `
   .remark { margin-top: 10px; font-size: 12px; border: 1px solid #999; padding: 8px;
             min-height: 34px; }
   .remark .k { font-weight: 700; }
-  .signs { display: flex; justify-content: space-between; margin-top: 40px; }
+  .signs { display: flex; justify-content: space-between; margin-top: auto; padding-top: 30px; }
   .signs .sign { border-top: 1px solid #333; padding-top: 4px; font-size: 12px; width: 28%;
                  text-align: center; }
   @media print {
     body { background: #fff; }
     .toolbar { display: none; }
     .sheet { margin: 0; max-width: none; }
-    .card { border: 1px solid #333; margin: 0; width: auto; page-break-after: always; }
+    /* min-height a few mm UNDER the printable area (297 - 2*10 = 277mm) so
+       rounding never spills a card onto a blank second page. */
+    .card { width: 100%; min-height: 272mm; margin: 0; padding: 12mm; page-break-after: always; page-break-inside: avoid; }
     .card:last-child { page-break-after: auto; }
     @page { size: A4; margin: 10mm; }
   }
