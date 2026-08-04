@@ -108,11 +108,11 @@ const santrld = {
     { date: '20 Apr', title: 'Parent–Teacher Meeting schedule for the new term.', tag: 'Notice' },
   ],
 
-  // ---- Contact (TODO: confirm real address / phone / email) --------------
+  // ---- Contact -----------------------------------------------------------
   contact: {
-    address: 'Sant RLD Public School, City, State – PIN', // TODO
-    phone: '+91 00000 00000', // TODO
-    email: 'info@santrldpublicschool.com', // TODO
+    address: 'Sainik Enclave, 16-A, Sector 3, Mohan Garden, Vikas Nagar, Delhi – 110059',
+    phone: '+91 75039 37155',
+    email: 'info@santrldpublicschool.com', // TODO: confirm real email if different
     hours: 'Mon–Sat, 8:00 AM – 2:00 PM',
   },
 
