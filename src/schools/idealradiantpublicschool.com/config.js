@@ -108,10 +108,10 @@ const idealradiant = {
     { date: '15 Apr', title: 'See the Circulars & Notifications section for updates.', tag: 'Notice' },
   ],
 
-  // ---- Contact (address from the site; CONFIRM phone/email/PIN) ----------
+  // ---- Contact -----------------------------------------------------------
   contact: {
-    address: 'Shiv Vihar, New Delhi, Delhi', // TODO: confirm full address + PIN code
-    phone: '+91 00000 00000', // TODO: confirm (site listed several numbers)
+    address: 'B-26, Shiv Vihar Rd, Vikas Nagar, Uttam Nagar, Delhi – 110059',
+    phone: '+91 95605 72885',
     email: 'info@idealradiantpublicschool.com', // TODO: confirm real email
     hours: 'Mon–Sat, 8:00 AM – 2:00 PM', // TODO: confirm
   },
