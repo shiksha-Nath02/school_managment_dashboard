@@ -1,8 +1,11 @@
 // ===== MARKS / EXAM CONSTANTS =====
-// The report card is built from these four: Term 1 (FA-1, SA-1) + Term 2 (FA-2, SA-2).
+// The report card is built from four of these: Term 1 (FA-1, SA-1) + Term 2 (FA-2, SA-2).
+// UT-1 / UT-2 (unit tests) can be marked/uploaded but are NOT shown on the report card.
 export const EXAM_TYPES = [
+  { value: 'UT-1', label: 'UT-1' },
   { value: 'FA-1', label: 'FA-1' },
   { value: 'SA-1', label: 'SA-1' },
+  { value: 'UT-2', label: 'UT-2' },
   { value: 'FA-2', label: 'FA-2' },
   { value: 'SA-2', label: 'SA-2' },
 ];
