@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { getAllClasses } from '@/services/timetableService';
-import { getSubjectsForClass, getExamTypes, getMarksForClass, saveMarks } from '@/services/marksService';
+import { getSubjectsForClass, getExamTypes, getMarksForClass, saveMarks, deleteMarks } from '@/services/marksService';
 import { EXAM_TYPES, SUBJECTS } from '@/constants';
-import { ClipboardCheck, Save, Loader2, History, PenLine, ChevronDown, Check, Plus, X } from 'lucide-react';
+import { ClipboardCheck, Save, Loader2, History, PenLine, ChevronDown, Check, Plus, X, Trash2 } from 'lucide-react';
 
 // ── Single subject combobox: dropdown list + free-text input ─────────────────
 function SubjectCombobox({ subjects, value, onChange }) {
@@ -311,27 +311,38 @@ const TeacherUploadMarks = () => {
   const handleSave = async () => {
     const subjs = mode === 'single' ? [singleSubject] : selectedSubjects;
     const entries = [];
+    let missingMax = false;
 
     Object.entries(marksData).forEach(([studentId, subjMap]) => {
       subjs.forEach(subj => {
         const data = subjMap[subj];
         if (!data) return;
         const mm = maxMarks[subj];
-        if (!mm) return;
+        const raw = data.marks_obtained;
+        // A blank field is NOT zero — it means "no mark". Only treat it as a value
+        // when something was actually typed, so clearing a mark removes it.
+        const hasVal = raw !== '' && raw !== null && raw !== undefined;
+
+        // A real mark (absent, or a typed value) needs max marks set.
+        if ((data.is_absent || hasVal) && !mm) { missingMax = true; return; }
 
         entries.push({
           student_id: parseInt(studentId),
           subject: subj,
-          max_marks: mm,
-          marks_obtained: data.is_absent ? null : (parseFloat(data.marks_obtained) || 0),
-          is_absent: data.is_absent,
+          max_marks: mm || null,
+          marks_obtained: data.is_absent ? null : (hasVal ? parseFloat(raw) : null),
+          is_absent: !!data.is_absent,
           remark: data.remark || null
         });
       });
     });
 
+    if (missingMax) {
+      showToast('error', 'Set max marks before saving.');
+      return;
+    }
     if (entries.length === 0) {
-      showToast('error', 'No marks to save — set max marks first');
+      showToast('error', 'Nothing to save.');
       return;
     }
 
@@ -350,6 +361,30 @@ const TeacherUploadMarks = () => {
       showToast('error', err.response?.data?.message || 'Failed to save marks');
     }
     setSaving(false);
+  };
+
+  // Delete an entire previously-uploaded exam + subject for this class.
+  const handleDeleteUpload = async (histExamType, histSubject) => {
+    const etLabel = EXAM_TYPES.find(e => e.value === histExamType)?.label || histExamType;
+    if (!window.confirm(
+      `Delete ALL "${histSubject}" marks for ${etLabel}?\n\nThis removes every student's mark for this exam & subject and cannot be undone.`
+    )) return;
+
+    try {
+      const res = await deleteMarks({
+        class_id: parseInt(selectedClass),
+        exam_type: histExamType,
+        subject: histSubject
+      });
+      showToast('success', res.data.message || 'Deleted');
+      // Refresh the "Previously Uploaded" list.
+      const list = await getExamTypes(selectedClass);
+      setUploadedHistory(list.data.examTypes || []);
+      // If the deleted combo is the one on screen, refresh the grid too.
+      if (examType === histExamType) setRefreshKey(k => k + 1);
+    } catch (err) {
+      showToast('error', err.response?.data?.message || 'Failed to delete');
+    }
   };
 
   // Load a previously uploaded exam+subject combo for editing
@@ -629,18 +664,34 @@ const TeacherUploadMarks = () => {
                     {histSubjects.map(subj => {
                       const isActive = examType === et && singleSubject === subj && mode === 'single';
                       return (
-                        <button
+                        <div
                           key={subj}
-                          onClick={() => handleHistoryClick(et, subj)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-dm-sans border transition-colors ${
+                          className={`flex items-center rounded-lg text-sm font-dm-sans border transition-colors overflow-hidden ${
                             isActive
                               ? 'bg-[#5B3A8C] text-white border-[#5B3A8C]'
-                              : 'bg-[#F0EBF7] text-[#5B3A8C] border-[#5B3A8C]/20 hover:bg-[#5B3A8C]/10'
+                              : 'bg-[#F0EBF7] text-[#5B3A8C] border-[#5B3A8C]/20'
                           }`}
                         >
-                          <PenLine className="w-3 h-3" />
-                          {subj}
-                        </button>
+                          <button
+                            onClick={() => handleHistoryClick(et, subj)}
+                            title="Load for editing"
+                            className={`flex items-center gap-1.5 pl-3 pr-2 py-1.5 ${isActive ? 'hover:bg-white/10' : 'hover:bg-[#5B3A8C]/10'}`}
+                          >
+                            <PenLine className="w-3 h-3" />
+                            {subj}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUpload(et, subj)}
+                            title={`Delete all ${subj} marks for this exam`}
+                            className={`flex items-center px-2 py-1.5 border-l ${
+                              isActive
+                                ? 'border-white/20 hover:bg-red-500/30'
+                                : 'border-[#5B3A8C]/20 text-[#5B3A8C]/60 hover:bg-red-50 hover:text-red-600'
+                            }`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
