@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { getAllClasses } from '@/services/timetableService';
-import { getSubjectsForClass, getExamTypes, getMarksForClass, saveMarks } from '@/services/marksService';
+import { getSubjectsForClass, getExamTypes, getMarksForClass, saveMarks, deleteMarks } from '@/services/marksService';
 import { EXAM_TYPES, SUBJECTS } from '@/constants';
-import { ClipboardCheck, Save, Loader2, History, PenLine, ChevronDown, Check, Plus, X } from 'lucide-react';
+import { ClipboardCheck, Save, Loader2, History, PenLine, ChevronDown, Check, Plus, X, Trash2 } from 'lucide-react';
 
 // ── Single subject combobox: dropdown list + free-text input ─────────────────
 function SubjectCombobox({ subjects, value, onChange }) {
@@ -221,19 +221,20 @@ const TeacherUploadMarks = () => {
   }, [selectedClass]);
 
 
-  // Fetch previously uploaded history whenever class changes
-  useEffect(() => {
-    if (!selectedClass) return;
-    const fetchHistory = async () => {
-      try {
-        const res = await getExamTypes(selectedClass);
-        setUploadedHistory(res.data.examTypes || []);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchHistory();
-  }, [selectedClass]);
+  // Load the list of exam+subject combos already saved for this class. Reused
+  // on class change, after saving, and after deleting so it always stays fresh.
+  const refreshHistory = async (classId = selectedClass) => {
+    if (!classId) return;
+    try {
+      const res = await getExamTypes(classId);
+      setUploadedHistory(res.data.examTypes || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Refresh the uploaded-marks list whenever the class changes.
+  useEffect(() => { refreshHistory(); }, [selectedClass]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch existing marks when class + exam + subjects/mode changes, or after save (refreshKey)
   useEffect(() => {
@@ -311,27 +312,38 @@ const TeacherUploadMarks = () => {
   const handleSave = async () => {
     const subjs = mode === 'single' ? [singleSubject] : selectedSubjects;
     const entries = [];
+    let missingMax = false;
 
     Object.entries(marksData).forEach(([studentId, subjMap]) => {
       subjs.forEach(subj => {
         const data = subjMap[subj];
         if (!data) return;
         const mm = maxMarks[subj];
-        if (!mm) return;
+        const raw = data.marks_obtained;
+        // A blank field is NOT zero — it means "no mark". Only treat it as a value
+        // when something was actually typed, so clearing a mark removes it.
+        const hasVal = raw !== '' && raw !== null && raw !== undefined;
+
+        // A real mark (absent, or a typed value) needs max marks set.
+        if ((data.is_absent || hasVal) && !mm) { missingMax = true; return; }
 
         entries.push({
           student_id: parseInt(studentId),
           subject: subj,
-          max_marks: mm,
-          marks_obtained: data.is_absent ? null : (parseFloat(data.marks_obtained) || 0),
-          is_absent: data.is_absent,
+          max_marks: mm || null,
+          marks_obtained: data.is_absent ? null : (hasVal ? parseFloat(raw) : null),
+          is_absent: !!data.is_absent,
           remark: data.remark || null
         });
       });
     });
 
+    if (missingMax) {
+      showToast('error', 'Set max marks before saving.');
+      return;
+    }
     if (entries.length === 0) {
-      showToast('error', 'No marks to save — set max marks first');
+      showToast('error', 'Nothing to save.');
       return;
     }
 
@@ -344,7 +356,7 @@ const TeacherUploadMarks = () => {
       });
       showToast('success', res.data.message || 'Marks saved successfully!');
       setIsUpdate(true);
-      setUploadedHistory([]); // hide the previously uploaded section on success
+      refreshHistory();          // keep the uploaded-marks list in sync (don't hide it)
       setRefreshKey(k => k + 1); // re-fetch marks to pre-fill with saved values
     } catch (err) {
       showToast('error', err.response?.data?.message || 'Failed to save marks');
@@ -352,11 +364,35 @@ const TeacherUploadMarks = () => {
     setSaving(false);
   };
 
-  // Load a previously uploaded exam+subject combo for editing
+  // Delete an entire previously-uploaded exam + subject for this class.
+  const handleDeleteUpload = async (histExamType, histSubject) => {
+    const etLabel = EXAM_TYPES.find(e => e.value === histExamType)?.label || histExamType;
+    if (!window.confirm(
+      `Delete ALL "${histSubject}" marks for ${etLabel}?\n\nThis removes every student's mark for this exam & subject and cannot be undone.`
+    )) return;
+
+    try {
+      const res = await deleteMarks({
+        class_id: parseInt(selectedClass),
+        exam_type: histExamType,
+        subject: histSubject
+      });
+      showToast('success', res.data.message || 'Deleted');
+      refreshHistory(); // refresh the uploaded-marks list
+      // If the deleted combo is the one on screen, refresh the grid too.
+      if (examType === histExamType) setRefreshKey(k => k + 1);
+    } catch (err) {
+      showToast('error', err.response?.data?.message || 'Failed to delete');
+    }
+  };
+
+  // Load a previously uploaded exam+subject combo into the grid above for
+  // viewing / editing, and scroll up so the change is visible.
   const handleHistoryClick = (histExamType, histSubject) => {
     setExamType(histExamType);
     setMode('single');
     setSingleSubject(histSubject);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const activeSubjects = mode === 'single' ? [singleSubject] : selectedSubjects;
@@ -609,14 +645,21 @@ const TeacherUploadMarks = () => {
         </button>
       </div>
 
-      {/* Previously Uploaded section */}
-      {uploadedHistory.length > 0 && (
+      {/* Uploaded marks — the place to review, re-open and edit what's saved */}
+      {selectedClass && (
         <div className="mt-10">
           <h2 className="text-sm font-semibold text-gray-700 font-outfit mb-3 flex items-center gap-2">
             <History className="w-4 h-4 text-[#5B3A8C]" />
-            Previously Uploaded
-            <span className="text-xs font-normal text-gray-400 ml-1">— click to load for editing</span>
+            Uploaded Marks
+            <span className="text-xs font-normal text-gray-400 ml-1">
+              — click a subject to view / edit its marks, or <Trash2 className="inline w-3 h-3 -mt-0.5" /> to delete
+            </span>
           </h2>
+          {uploadedHistory.length === 0 ? (
+            <div className="bg-white border border-dashed border-gray-200 rounded-xl px-5 py-6 text-center text-sm text-gray-400 font-dm-sans">
+              No marks uploaded yet for {classLabel || 'this class'}. Enter marks above and save — they'll appear here to review or edit.
+            </div>
+          ) : (
           <div className="space-y-3">
             {uploadedHistory.map(({ exam_type: et, subjects: histSubjects }) => {
               const etLabel = EXAM_TYPES.find(e => e.value === et)?.label || et;
@@ -629,18 +672,34 @@ const TeacherUploadMarks = () => {
                     {histSubjects.map(subj => {
                       const isActive = examType === et && singleSubject === subj && mode === 'single';
                       return (
-                        <button
+                        <div
                           key={subj}
-                          onClick={() => handleHistoryClick(et, subj)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-dm-sans border transition-colors ${
+                          className={`flex items-center rounded-lg text-sm font-dm-sans border transition-colors overflow-hidden ${
                             isActive
                               ? 'bg-[#5B3A8C] text-white border-[#5B3A8C]'
-                              : 'bg-[#F0EBF7] text-[#5B3A8C] border-[#5B3A8C]/20 hover:bg-[#5B3A8C]/10'
+                              : 'bg-[#F0EBF7] text-[#5B3A8C] border-[#5B3A8C]/20'
                           }`}
                         >
-                          <PenLine className="w-3 h-3" />
-                          {subj}
-                        </button>
+                          <button
+                            onClick={() => handleHistoryClick(et, subj)}
+                            title="Load for editing"
+                            className={`flex items-center gap-1.5 pl-3 pr-2 py-1.5 ${isActive ? 'hover:bg-white/10' : 'hover:bg-[#5B3A8C]/10'}`}
+                          >
+                            <PenLine className="w-3 h-3" />
+                            {subj}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUpload(et, subj)}
+                            title={`Delete all ${subj} marks for this exam`}
+                            className={`flex items-center px-2 py-1.5 border-l ${
+                              isActive
+                                ? 'border-white/20 hover:bg-red-500/30'
+                                : 'border-[#5B3A8C]/20 text-[#5B3A8C]/60 hover:bg-red-50 hover:text-red-600'
+                            }`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -648,6 +707,7 @@ const TeacherUploadMarks = () => {
               );
             })}
           </div>
+          )}
         </div>
       )}
     </div>
