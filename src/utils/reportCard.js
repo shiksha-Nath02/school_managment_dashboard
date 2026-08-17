@@ -8,12 +8,50 @@
 // with demo card 2's header (school name + student info block).
 // =============================================================================
 
-// Term / exam column layout of the card.
-const TERMS = [
-  { term: 'Term 1', exams: ['FA-1', 'SA-1'] },
-  { term: 'Term 2', exams: ['FA-2', 'SA-2'] },
+// Canonical term / exam layout. UT-1/UT-2 live inside their term alongside
+// the formative/summative exams. The card only renders the exams that actually
+// have marks for the class being printed (see resolveExamLayout), so a term or
+// a UT column simply disappears when no marks were uploaded for it.
+const TERM_LAYOUT = [
+  { term: 'Term 1', exams: ['UT-1', 'FA-1', 'SA-1'] },
+  { term: 'Term 2', exams: ['UT-2', 'FA-2', 'SA-2'] },
 ];
-const EXAM_ORDER = ['FA-1', 'SA-1', 'FA-2', 'SA-2'];
+const CANONICAL_ORDER = TERM_LAYOUT.flatMap((t) => t.exams);
+// Fallback layout for a class with no marks at all — keeps the old FA/SA look
+// so an empty card doesn't render blank UT columns.
+const FALLBACK_ORDER = ['FA-1', 'SA-1', 'FA-2', 'SA-2'];
+
+// Inspect the students being printed and build the exam-column layout from the
+// exam types that actually have marks. Canonical order is preserved; any
+// unrecognised exam type is appended under an "Other" term so nothing is
+// silently dropped.
+function resolveExamLayout(students = []) {
+  const present = new Set();
+  students.forEach((s) =>
+    (s.marks || []).forEach((m) => { if (m && m.examType) present.add(m.examType); })
+  );
+
+  const known = CANONICAL_ORDER.filter((e) => present.has(e));
+  const extras = [...present].filter((e) => !CANONICAL_ORDER.includes(e)).sort();
+
+  if (known.length === 0 && extras.length === 0) {
+    // No marks anywhere — fall back to the classic FA/SA columns.
+    return {
+      examOrder: FALLBACK_ORDER,
+      terms: [
+        { term: 'Term 1', exams: ['FA-1', 'SA-1'] },
+        { term: 'Term 2', exams: ['FA-2', 'SA-2'] },
+      ],
+    };
+  }
+
+  const terms = TERM_LAYOUT
+    .map((t) => ({ term: t.term, exams: t.exams.filter((e) => present.has(e)) }))
+    .filter((t) => t.exams.length > 0);
+  if (extras.length) terms.push({ term: 'Other', exams: extras });
+
+  return { examOrder: [...known, ...extras], terms };
+}
 
 // 8-point grading scale (from the demo report card).
 export function computeGrade(pct) {
@@ -50,11 +88,12 @@ function fmtDate(d) {
   return `${dd}/${mm}/${dt.getFullYear()}`;
 }
 
-// Group a student's flat marks[] into { subject -> { exam -> markRow } }.
-export function pivotStudentMarks(marks = []) {
+// Group a student's flat marks[] into { subject -> { exam -> markRow } },
+// keeping only the exams in the resolved column layout.
+export function pivotStudentMarks(marks = [], examOrder = CANONICAL_ORDER) {
   const bySubject = {};
   for (const m of marks) {
-    if (!EXAM_ORDER.includes(m.examType)) continue; // ignore legacy exam types on the card
+    if (!examOrder.includes(m.examType)) continue; // outside the card's columns
     if (!bySubject[m.subject]) bySubject[m.subject] = {};
     bySubject[m.subject][m.examType] = m;
   }
@@ -62,10 +101,10 @@ export function pivotStudentMarks(marks = []) {
 }
 
 // Representative max per exam across all subjects (for the column headers "(10)"/"(40)").
-function examMaxes(marks = []) {
+function examMaxes(marks = [], examOrder = CANONICAL_ORDER) {
   const maxes = {};
   for (const m of marks) {
-    if (!EXAM_ORDER.includes(m.examType)) continue;
+    if (!examOrder.includes(m.examType)) continue;
     if (m.maxMarks && (!maxes[m.examType] || m.maxMarks > maxes[m.examType])) {
       maxes[m.examType] = m.maxMarks;
     }
@@ -82,22 +121,25 @@ function cellValue(mark) {
 }
 
 // Build the marks table + totals for one student. Returns { html, obtained, total, pct }.
-function buildMarksTable(student) {
-  const pivot = pivotStudentMarks(student.marks);
-  const maxes = examMaxes(student.marks);
+// `layout` = { examOrder, terms } resolved once for the whole print batch so
+// every card shares the same columns.
+function buildMarksTable(student, layout) {
+  const { examOrder, terms } = layout;
+  const pivot = pivotStudentMarks(student.marks, examOrder);
+  const maxes = examMaxes(student.marks, examOrder);
   const subjects = Object.keys(pivot).sort();
 
   let grandObtained = 0;
   let grandMax = 0;
   const termTotals = {}; // exam -> obtained sum (for the Total row)
-  EXAM_ORDER.forEach((e) => { termTotals[e] = { obt: 0, has: false }; });
+  examOrder.forEach((e) => { termTotals[e] = { obt: 0, has: false }; });
 
   const rows = subjects.map((subject) => {
     const marksByExam = pivot[subject];
     let subjObtained = 0;
     let subjMax = 0;
 
-    const examCells = EXAM_ORDER.map((exam) => {
+    const examCells = examOrder.map((exam) => {
       const mk = marksByExam[exam];
       if (mk && !(mk.marksObtained === null && !mk.isAbsent)) {
         const obt = mk.isAbsent ? 0 : Number(mk.marksObtained || 0);
@@ -121,7 +163,7 @@ function buildMarksTable(student) {
     </tr>`;
   }).join('');
 
-  const totalCells = EXAM_ORDER.map(
+  const totalCells = examOrder.map(
     (e) => `<td class="num strong">${termTotals[e].has ? termTotals[e].obt : '-'}</td>`
   ).join('');
 
@@ -132,18 +174,18 @@ function buildMarksTable(student) {
       <thead>
         <tr>
           <th rowspan="2" class="subj-h">Subject</th>
-          ${TERMS.map((t) => `<th colspan="${t.exams.length}">${t.term}</th>`).join('')}
+          ${terms.map((t) => `<th colspan="${t.exams.length}">${t.term}</th>`).join('')}
           <th rowspan="2">Grand Total${grandMax ? ` (${grandMax})` : ''}</th>
           <th rowspan="2">Grade</th>
         </tr>
         <tr>
-          ${EXAM_ORDER.map(
+          ${examOrder.map(
             (e) => `<th class="exam-h">${e}${maxes[e] ? `<br><span class="mm">(${maxes[e]})</span>` : ''}</th>`
           ).join('')}
         </tr>
       </thead>
       <tbody>
-        ${rows || `<tr><td class="subj" colspan="${EXAM_ORDER.length + 3}" style="text-align:center;color:#888">No marks entered</td></tr>`}
+        ${rows || `<tr><td class="subj" colspan="${examOrder.length + 3}" style="text-align:center;color:#888">No marks entered</td></tr>`}
         <tr class="total-row">
           <td class="subj strong">Total</td>
           ${totalCells}
@@ -158,7 +200,7 @@ function buildMarksTable(student) {
 
 // Pick a remark to show at the bottom (prefer the latest term's non-empty remark).
 function pickRemark(student) {
-  const order = ['SA-2', 'FA-2', 'SA-1', 'FA-1'];
+  const order = ['SA-2', 'FA-2', 'UT-2', 'SA-1', 'FA-1', 'UT-1'];
   for (const exam of order) {
     const m = (student.marks || []).find((x) => x.examType === exam && x.remark && x.remark.trim());
     if (m) return m.remark.trim();
@@ -167,8 +209,8 @@ function pickRemark(student) {
   return any ? any.remark.trim() : '';
 }
 
-function buildOneCard(student, meta) {
-  const { html: marksTable, obtained, total, pct } = buildMarksTable(student);
+function buildOneCard(student, meta, layout) {
+  const { html: marksTable, obtained, total, pct } = buildMarksTable(student, layout);
   const pctText = total ? `${(Math.round(pct * 100) / 100).toFixed(2)}%` : '-';
   const grade = computeGrade(total ? pct : null);
   const result = total ? (pct >= 33 ? 'Pass' : 'Fail') : '-';
@@ -299,7 +341,10 @@ const STYLES = `
 
 // Build the full standalone HTML document for the given students.
 export function buildReportCardsHtml(students, meta) {
-  const cards = students.map((s) => buildOneCard(s, meta)).join('\n');
+  // Resolve the exam columns once so every card in this batch shares the same
+  // layout — the columns are whichever exam types have marks for these students.
+  const layout = resolveExamLayout(students);
+  const cards = students.map((s) => buildOneCard(s, meta, layout)).join('\n');
   const title = `Report Cards — ${meta.className || ''}${meta.section ? '-' + meta.section : ''}`;
   return `<!DOCTYPE html>
 <html>
