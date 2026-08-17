@@ -1,6 +1,8 @@
 // ===== MARKS / EXAM CONSTANTS =====
-// The report card is built from four of these: Term 1 (FA-1, SA-1) + Term 2 (FA-2, SA-2).
-// UT-1 / UT-2 (unit tests) can be marked/uploaded but are NOT shown on the report card.
+// The report card renders a column for every exam type that actually has marks
+// for the class being printed. Canonical layout (see utils/reportCard.js):
+// Term 1 = UT-1, FA-1, SA-1 ; Term 2 = UT-2, FA-2, SA-2. Exams with no marks
+// (e.g. UT-1/UT-2 when unit tests weren't uploaded) are simply omitted.
 export const EXAM_TYPES = [
   { value: 'UT-1', label: 'UT-1' },
   { value: 'FA-1', label: 'FA-1' },
@@ -10,10 +12,12 @@ export const EXAM_TYPES = [
   { value: 'SA-2', label: 'SA-2' },
 ];
 
-// Report-card column layout: Term 1 = FA-1 + SA-1, Term 2 = FA-2 + SA-2.
+// Report-card term layout (unit tests included). The generator in
+// utils/reportCard.js owns the live copy and filters these to the exams that
+// have marks; kept here for reference/consistency.
 export const REPORT_TERMS = [
-  { term: 'Term 1', exams: ['FA-1', 'SA-1'] },
-  { term: 'Term 2', exams: ['FA-2', 'SA-2'] },
+  { term: 'Term 1', exams: ['UT-1', 'FA-1', 'SA-1'] },
+  { term: 'Term 2', exams: ['UT-2', 'FA-2', 'SA-2'] },
 ];
 
 export const GRADE_COLORS = {
