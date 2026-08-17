@@ -221,19 +221,20 @@ const TeacherUploadMarks = () => {
   }, [selectedClass]);
 
 
-  // Fetch previously uploaded history whenever class changes
-  useEffect(() => {
-    if (!selectedClass) return;
-    const fetchHistory = async () => {
-      try {
-        const res = await getExamTypes(selectedClass);
-        setUploadedHistory(res.data.examTypes || []);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchHistory();
-  }, [selectedClass]);
+  // Load the list of exam+subject combos already saved for this class. Reused
+  // on class change, after saving, and after deleting so it always stays fresh.
+  const refreshHistory = async (classId = selectedClass) => {
+    if (!classId) return;
+    try {
+      const res = await getExamTypes(classId);
+      setUploadedHistory(res.data.examTypes || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Refresh the uploaded-marks list whenever the class changes.
+  useEffect(() => { refreshHistory(); }, [selectedClass]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch existing marks when class + exam + subjects/mode changes, or after save (refreshKey)
   useEffect(() => {
@@ -355,7 +356,7 @@ const TeacherUploadMarks = () => {
       });
       showToast('success', res.data.message || 'Marks saved successfully!');
       setIsUpdate(true);
-      setUploadedHistory([]); // hide the previously uploaded section on success
+      refreshHistory();          // keep the uploaded-marks list in sync (don't hide it)
       setRefreshKey(k => k + 1); // re-fetch marks to pre-fill with saved values
     } catch (err) {
       showToast('error', err.response?.data?.message || 'Failed to save marks');
@@ -377,9 +378,7 @@ const TeacherUploadMarks = () => {
         subject: histSubject
       });
       showToast('success', res.data.message || 'Deleted');
-      // Refresh the "Previously Uploaded" list.
-      const list = await getExamTypes(selectedClass);
-      setUploadedHistory(list.data.examTypes || []);
+      refreshHistory(); // refresh the uploaded-marks list
       // If the deleted combo is the one on screen, refresh the grid too.
       if (examType === histExamType) setRefreshKey(k => k + 1);
     } catch (err) {
@@ -387,11 +386,13 @@ const TeacherUploadMarks = () => {
     }
   };
 
-  // Load a previously uploaded exam+subject combo for editing
+  // Load a previously uploaded exam+subject combo into the grid above for
+  // viewing / editing, and scroll up so the change is visible.
   const handleHistoryClick = (histExamType, histSubject) => {
     setExamType(histExamType);
     setMode('single');
     setSingleSubject(histSubject);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const activeSubjects = mode === 'single' ? [singleSubject] : selectedSubjects;
@@ -644,14 +645,21 @@ const TeacherUploadMarks = () => {
         </button>
       </div>
 
-      {/* Previously Uploaded section */}
-      {uploadedHistory.length > 0 && (
+      {/* Uploaded marks — the place to review, re-open and edit what's saved */}
+      {selectedClass && (
         <div className="mt-10">
           <h2 className="text-sm font-semibold text-gray-700 font-outfit mb-3 flex items-center gap-2">
             <History className="w-4 h-4 text-[#5B3A8C]" />
-            Previously Uploaded
-            <span className="text-xs font-normal text-gray-400 ml-1">— click to load for editing</span>
+            Uploaded Marks
+            <span className="text-xs font-normal text-gray-400 ml-1">
+              — click a subject to view / edit its marks, or <Trash2 className="inline w-3 h-3 -mt-0.5" /> to delete
+            </span>
           </h2>
+          {uploadedHistory.length === 0 ? (
+            <div className="bg-white border border-dashed border-gray-200 rounded-xl px-5 py-6 text-center text-sm text-gray-400 font-dm-sans">
+              No marks uploaded yet for {classLabel || 'this class'}. Enter marks above and save — they'll appear here to review or edit.
+            </div>
+          ) : (
           <div className="space-y-3">
             {uploadedHistory.map(({ exam_type: et, subjects: histSubjects }) => {
               const etLabel = EXAM_TYPES.find(e => e.value === et)?.label || et;
@@ -699,6 +707,7 @@ const TeacherUploadMarks = () => {
               );
             })}
           </div>
+          )}
         </div>
       )}
     </div>
