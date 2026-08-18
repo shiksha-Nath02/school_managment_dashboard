@@ -19,6 +19,25 @@ export const getAttendanceByDate = (classId, date) =>
   api.get(`/teacher/attendance/${classId}`, { params: { date } });
 
 // ========================
+// ADMIN - Student Attendance upload (any class; same flow as teachers)
+// ========================
+
+// All classes an admin can mark attendance for.
+export const getAdminClasses = () => api.get('/admin/classes');
+
+// Students in a class (for the marking list).
+export const getAdminStudentsByClass = (classId) =>
+  api.get(`/admin/attendance-students/${classId}`);
+
+// Existing attendance for a class on a date.
+export const getAdminAttendanceByDate = (classId, date) =>
+  api.get(`/admin/student-attendance/${classId}`, { params: { date } });
+
+// Submit/update attendance. data: { classId, date, records: [{ studentId, status }] }
+export const submitAdminStudentAttendance = (data) =>
+  api.post('/admin/student-attendance', data);
+
+// ========================
 // ADMIN - Teacher Attendance APIs
 // ========================
 

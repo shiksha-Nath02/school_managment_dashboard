@@ -18,7 +18,18 @@ import {
   getAttendanceByDate,
 } from '@/services/attendanceService';
 
-export default function TeacherUploadAttendance() {
+// Shared attendance-marking screen for teachers AND admins. The only difference
+// is which API set it talks to (teacher endpoints vs. admin endpoints) and the
+// class list it offers — passed in via `api`. Defaults keep teacher behaviour.
+export default function TeacherUploadAttendance({
+  api: apiSet = {
+    getClasses: getTeacherClasses,
+    getStudents: getStudentsByClass,
+    getAttendance: getAttendanceByDate,
+    submit: submitAttendance,
+  },
+  subtitle = 'Mark daily attendance for your assigned classes',
+} = {}) {
   // State
   const [classes, setClasses] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState('');
@@ -52,7 +63,7 @@ export default function TeacherUploadAttendance() {
   const fetchClasses = async () => {
     try {
       setLoadingClasses(true);
-      const res = await getTeacherClasses();
+      const res = await apiSet.getClasses();
       setClasses(res.data.classes || []);
     } catch (err) {
       console.error('Failed to fetch classes:', err);
@@ -68,13 +79,13 @@ export default function TeacherUploadAttendance() {
       setAlreadyMarked(false);
 
       // Fetch students list
-      const studentsRes = await getStudentsByClass(classId);
+      const studentsRes = await apiSet.getStudents(classId);
       const studentsList = studentsRes.data.students || [];
       setStudents(studentsList);
       setClassInfo(studentsRes.data.classInfo);
 
       // Check if attendance already marked for this date
-      const attendanceRes = await getAttendanceByDate(classId, selectedDate);
+      const attendanceRes = await apiSet.getAttendance(classId, selectedDate);
       if (attendanceRes.data.alreadyMarked) {
         setAlreadyMarked(true);
         setIsViewMode(true);
@@ -134,7 +145,7 @@ export default function TeacherUploadAttendance() {
         status,
       }));
 
-      const res = await submitAttendance({
+      const res = await apiSet.submit({
         classId: parseInt(selectedClassId),
         date: selectedDate,
         records,
@@ -171,7 +182,7 @@ export default function TeacherUploadAttendance() {
           Upload Attendance
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Mark daily attendance for your assigned classes
+          {subtitle}
         </p>
       </div>
 

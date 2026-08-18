@@ -164,6 +164,7 @@ export const SIDEBAR_NAV = {
     {
       title: 'Attendance',
       items: [
+        { key: 'upload-attendance', label: 'Upload Student Attendance', icon: 'Upload', path: '/admin/upload-attendance' },
         { key: 'teacher-attendance', label: 'Teacher Attendance', icon: 'CheckCircle', path: '/admin/teacher-attendance' },
         { key: 'teacher-attendance-report', label: 'Attendance Report', icon: 'BarChart2', path: '/admin/teacher-attendance-report' },
       ],
