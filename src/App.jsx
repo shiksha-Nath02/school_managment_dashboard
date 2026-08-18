@@ -59,6 +59,7 @@ import AdminRemoveStudentPage from './pages/admin/AdminRemoveStudent';
 import AdminWebsite from './pages/admin/AdminWebsite';
 import AdminReports from './pages/admin/AdminReports';
 import AdminStudentAttendance from './pages/admin/AdminStudentAttendance';
+import AdminUploadAttendance from './pages/admin/AdminUploadAttendance';
 
 export default function App() {
   return (
@@ -118,6 +119,7 @@ export default function App() {
         <Route path="teachers" element={<AdminTeachersPage />} />
         <Route path="reports" element={<AdminReports />} />
         <Route path="student-attendance" element={<AdminStudentAttendance />} />
+        <Route path="upload-attendance" element={<AdminUploadAttendance />} />
         <Route path="teacher-attendance" element={<AdminTeacherAttendance />} />
         <Route path="teacher-attendance-report" element={<AdminTeacherAttendanceReport />} />
         <Route path="fee-individual" element={<AdminFeeIndividual />} />
