@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import studentService from '@/services/studentService';
 import { getClassAttendanceSummary } from '@/services/reportService';
-import { CalendarCheck, Loader2, Download, Search } from 'lucide-react';
+import { CalendarCheck, Loader2, Download, Search, Upload } from 'lucide-react';
 
 const filterCls = 'px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-brand-400 bg-white';
 
@@ -13,6 +14,7 @@ const monthStartIso = () => {
 };
 
 const AdminStudentAttendance = () => {
+  const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [from, setFrom] = useState(monthStartIso());
@@ -77,13 +79,21 @@ const AdminStudentAttendance = () => {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 font-display flex items-center gap-2">
-          <CalendarCheck className="w-6 h-6 text-brand-500" /> Student Attendance
-        </h1>
-        <p className="text-gray-400 text-sm mt-1">
-          Attendance summary per student over a date range.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 font-display flex items-center gap-2">
+            <CalendarCheck className="w-6 h-6 text-brand-500" /> Student Attendance
+          </h1>
+          <p className="text-gray-400 text-sm mt-1">
+            Attendance summary per student over a date range.
+          </p>
+        </div>
+        <button
+          onClick={() => navigate('/admin/upload-attendance')}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 text-white text-sm font-semibold hover:bg-brand-600 transition-colors shadow-sm shrink-0"
+        >
+          <Upload className="w-4 h-4" /> Upload Attendance
+        </button>
       </div>
 
       {/* Filters */}
