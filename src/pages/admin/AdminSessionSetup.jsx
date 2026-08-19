@@ -560,7 +560,7 @@ const AdminSessionSetup = () => {
                           <table className="w-full">
                             <thead className="bg-brand-50 sticky top-0">
                               <tr>
-                                {['Student', 'Monthly Fee (₹)', 'Discount (₹)', 'Reason'].map(h => (
+                                {['Adm No', 'Student', 'Monthly Fee (₹)', 'Discount (₹)', 'Reason'].map(h => (
                                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-brand-500 uppercase">{h}</th>
                                 ))}
                               </tr>
@@ -570,6 +570,9 @@ const AdminSessionSetup = () => {
                                 const fee = studentFees[student.id] || {};
                                 return (
                                   <tr key={student.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                                    <td className="px-4 py-2 text-sm font-mono text-xs font-semibold text-brand-600">
+                                      {student.admission_number ?? student.id}
+                                    </td>
                                     <td className="px-4 py-2 text-sm text-gray-800">
                                       {student.user?.name || `Student ${student.id}`}
                                     </td>

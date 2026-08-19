@@ -12,6 +12,8 @@ export default function AdminTeachers() {
   const isSuperAdmin = user?.role === 'superadmin';
   const [resetUser, setResetUser] = useState(null);
   const [teachers, setTeachers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [assigningId, setAssigningId] = useState(null); // teacher id whose class is being saved
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
@@ -35,6 +37,29 @@ export default function AdminTeachers() {
   }, [showToast]);
 
   useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
+
+  // Load all classes once for the assignment dropdown.
+  useEffect(() => {
+    teacherService.getClasses()
+      .then((d) => setClasses(d.classes || []))
+      .catch(() => {});
+  }, []);
+
+  // Assign (or clear) a teacher's class. class_teacher_id is one-per-class, so
+  // picking a class that another teacher owns moves it here (steal). We refetch
+  // to keep every row's dropdown showing the truth after a steal.
+  const handleAssignClass = async (teacherId, classId) => {
+    setAssigningId(teacherId);
+    try {
+      await teacherService.assignClass(teacherId, classId);
+      showToast('success', classId ? 'Class assigned' : 'Class unassigned');
+      await fetchTeachers();
+    } catch (err) {
+      showToast('error', err.response?.data?.message || 'Failed to assign class');
+    } finally {
+      setAssigningId(null);
+    }
+  };
 
   const handleRemove = async () => {
     if (!confirmId) return;
@@ -152,6 +177,7 @@ export default function AdminTeachers() {
                   <th className="px-6 py-3 text-left">#</th>
                   <th className="px-4 py-3 text-left">Name</th>
                   <th className="px-4 py-3 text-left">Subject</th>
+                  <th className="px-4 py-3 text-left">Class</th>
                   <th className="px-4 py-3 text-left">Email</th>
                   <th className="px-4 py-3 text-left">Phone</th>
                   <th className="px-4 py-3 text-left">Salary</th>
@@ -172,6 +198,22 @@ export default function AdminTeachers() {
                       <p className="text-xs text-gray-400">{t.user?.email || '—'}</p>
                     </td>
                     <td className="px-4 py-3.5 text-gray-600">{t.subject || '—'}</td>
+                    <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={t.classes?.[0]?.id ?? ''}
+                          disabled={assigningId === t.id}
+                          onChange={(e) => handleAssignClass(t.id, e.target.value)}
+                          className="bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:outline-none focus:border-brand-400 disabled:opacity-50 max-w-[150px]"
+                        >
+                          <option value="">— Unassigned —</option>
+                          {classes.map((c) => (
+                            <option key={c.id} value={c.id}>{c.class_name}{c.section ? `-${c.section}` : ''}</option>
+                          ))}
+                        </select>
+                        {assigningId === t.id && <Loader2 className="w-3.5 h-3.5 text-brand-500 animate-spin" />}
+                      </div>
+                    </td>
                     <td className="px-4 py-3.5 text-gray-500">{t.user?.email || '—'}</td>
                     <td className="px-4 py-3.5 text-gray-500">{t.user?.phone || '—'}</td>
                     <td className="px-4 py-3.5 text-gray-700 font-medium">

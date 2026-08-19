@@ -381,7 +381,7 @@ export default function TeacherUploadAttendance({
                       {student.user?.name || 'Unknown Student'}
                     </p>
                     <p className="text-xs text-gray-400">
-                      Roll #{student.roll_number}
+                      Roll #{student.roll_number} · Adm: {student.admission_number ?? '—'}
                     </p>
                   </div>
 

@@ -36,6 +36,23 @@ const teacherService = {
     const response = await api.get(`/admin/teachers/${id}/classes`);
     return response.data;
   },
+
+  // All classes (id, class_name, section, class_teacher_id) — used to populate
+  // the class-assignment dropdown on the Teachers tab.
+  getClasses: async () => {
+    const response = await api.get('/admin/classes');
+    return response.data;
+  },
+
+  // Assign this teacher as class-teacher of a class (one class per teacher —
+  // clears any class they already own, steals it from a previous owner).
+  // Pass classId = '' or null to unassign.
+  assignClass: async (id, classId) => {
+    const response = await api.put(`/admin/teachers/${id}/class`, {
+      class_id: classId === '' || classId == null ? null : parseInt(classId, 10),
+    });
+    return response.data;
+  },
 };
 
 export default teacherService;
