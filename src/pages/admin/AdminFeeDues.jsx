@@ -39,7 +39,7 @@ const AdminFeeDues = () => {
   };
 
   const filteredStudents = useMemo(() => students.filter((s) => {
-    if (filterSearch   && !s.name?.toLowerCase().includes(filterSearch.toLowerCase()) && !String(s.id).includes(filterSearch)) return false;
+    if (filterSearch   && !s.name?.toLowerCase().includes(filterSearch.toLowerCase()) && !String(s.admission_number ?? s.id).toLowerCase().includes(filterSearch.toLowerCase())) return false;
     if (filterMinDue   && (s.total_due || 0) < parseFloat(filterMinDue)) return false;
     if (filterCategory && s.category !== filterCategory) return false;
     return true;
@@ -52,7 +52,7 @@ const AdminFeeDues = () => {
   const exportCsv = () => {
     const header = ['Adm No', 'Student Name', 'Class', 'Phone', 'Pending', 'Fine', 'Total Due', 'Last Payment'];
     const rows   = filteredStudents.map((s) => [
-      s.id, `"${s.name || ''}"`, `"${s.class || ''}"`, `"${s.father_phone || ''}"`,
+      s.admission_number ?? s.id, `"${s.name || ''}"`, `"${s.class || ''}"`, `"${s.father_phone || ''}"`,
       s.pending || 0, s.fine || 0, s.total_due || 0,
       s.last_billing_month ? `${s.last_billing_month}/${s.last_billing_year}` : 'Never',
     ]);
@@ -158,7 +158,7 @@ const AdminFeeDues = () => {
             <tbody>
               {filteredStudents.map((item, i) => (
                 <tr key={item.id ?? i} className={`border-t border-gray-100 ${i % 2 === 0 ? '' : 'bg-gray-50/30'}`}>
-                  <td className="px-4 py-3 font-mono text-xs font-bold text-brand-600">{item.id}</td>
+                  <td className="px-4 py-3 font-mono text-xs font-bold text-brand-600">{item.admission_number ?? item.id}</td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.name || `Student ${item.id}`}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{item.class || '–'}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
