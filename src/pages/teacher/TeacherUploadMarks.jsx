@@ -544,6 +544,7 @@ const TeacherUploadMarks = () => {
             <thead className="bg-[#F0EBF7]">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[#5B3A8C] uppercase font-outfit w-12">Roll</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[#5B3A8C] uppercase font-outfit w-24">Adm No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-[#5B3A8C] uppercase font-outfit">Student</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-[#5B3A8C] uppercase font-outfit w-24">Marks</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-[#5B3A8C] uppercase font-outfit w-20">Absent</th>
@@ -557,6 +558,7 @@ const TeacherUploadMarks = () => {
                 return (
                   <tr key={student.student_id} className={`border-t border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                     <td className="px-4 py-2.5 text-sm text-gray-500 font-dm-sans">{student.roll_number}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-500 font-mono font-dm-sans">{student.admission_number ?? '—'}</td>
                     <td className="px-4 py-2.5 text-sm font-medium text-gray-800 font-dm-sans">{student.name}</td>
                     <td className="px-4 py-2.5 text-center">
                       <input type="number"
@@ -605,7 +607,10 @@ const TeacherUploadMarks = () => {
                 {students.map((student, i) => (
                   <tr key={student.student_id} className={`border-t border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                     <td className="px-3 py-2 text-sm text-gray-500 font-dm-sans sticky left-0 bg-inherit">{student.roll_number}</td>
-                    <td className="px-3 py-2 text-sm font-medium text-gray-800 font-dm-sans sticky left-10 bg-inherit">{student.name}</td>
+                    <td className="px-3 py-2 text-sm font-medium text-gray-800 font-dm-sans sticky left-10 bg-inherit">
+                      {student.name}
+                      <span className="block text-[10px] font-mono text-gray-400">Adm: {student.admission_number ?? '—'}</span>
+                    </td>
                     {activeSubjects.map(subj => {
                       const data = marksData[student.student_id]?.[subj] || {};
                       return (
