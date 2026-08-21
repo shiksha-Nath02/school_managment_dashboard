@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { getSessions, getActiveSession, createSession, updateSessionFees, promoteStudents } from '@/services/feeService';
-import { Settings2, Plus, ChevronDown, ChevronUp, Users, ArrowRight, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { getSessions, getActiveSession, createSession, updateSessionFees, activateSession, promoteStudents } from '@/services/feeService';
+import { Settings2, Plus, ChevronDown, ChevronUp, Users, ArrowRight, Check, AlertCircle, Loader2, Pencil } from 'lucide-react';
 import api from '@/services/api';
+import SessionFeeEditor from './SessionFeeEditor';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -44,6 +45,14 @@ const AdminSessionSetup = () => {
 
   // Step tracking
   const [step, setStep] = useState(1); // 1: Basic, 2: Fees, 3: Promotion, 4: Review
+
+  // Editing an existing session's fees (Piece 1 — per-class save)
+  const [editSession, setEditSession] = useState(null);
+
+  // New-session draft for the individual (per-class) flow (Piece 2).
+  // Created inactive up-front so per-class fees persist as you go; activated at the end.
+  const [draftSession, setDraftSession] = useState(null);
+  const [creatingDraft, setCreatingDraft] = useState(false);
 
   useEffect(() => {
     fetchSessions();
@@ -106,46 +115,85 @@ const AdminSessionSetup = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
+  // Basic session fields shared by draft creation and the default/copy final create.
+  const buildBasicPayload = () => ({
+    name: form.name,
+    start_month: parseInt(form.start_month),
+    start_year: parseInt(form.start_year),
+    excluded_months: form.excluded_months,
+    fine_enabled: form.fine_enabled,
+    fine_per_day: form.fine_enabled ? parseFloat(form.fine_per_day) : 0,
+    grace_period_days: form.fine_enabled ? parseInt(form.grace_period_days) : 10,
+    admission_fee: parseFloat(form.admission_fee) || 0
+  });
+
+  // Individual (per-class) flow: create the session up-front as an inactive DRAFT
+  // so each class's fees can be saved to the DB as they're entered (no data loss,
+  // two teachers can share). Activated only at the final step.
+  const createDraft = async () => {
+    if (!form.name || !form.start_month || !form.start_year) {
+      showToast('error', 'Fill in session name, start month and year first (Step 1).');
+      setStep(1);
+      return;
+    }
+    setCreatingDraft(true);
+    try {
+      const res = await createSession({ ...buildBasicPayload(), is_active: false });
+      setDraftSession(res.data.session);
+      showToast('success', 'Draft created — now save each class as you go.');
+    } catch (err) {
+      showToast('error', err.response?.data?.message || 'Failed to create draft session');
+    }
+    setCreatingDraft(false);
+  };
+
+  const resetCreateForm = () => {
+    setShowCreateForm(false);
+    setStep(1);
+    setDraftSession(null);
+    fetchSessions();
+  };
+
+  // Make a draft/inactive session live from the sessions list.
+  const handleActivate = async (session) => {
+    try {
+      await activateSession(session.id);
+      showToast('success', `"${session.name}" is now the active session`);
+      fetchSessions();
+    } catch (err) {
+      showToast('error', err.response?.data?.message || 'Failed to activate session');
+    }
+  };
+
   const handleCreate = async () => {
     setSaving(true);
     try {
-      const payload = {
-        name: form.name,
-        start_month: parseInt(form.start_month),
-        start_year: parseInt(form.start_year),
-        excluded_months: form.excluded_months,
-        fine_enabled: form.fine_enabled,
-        fine_per_day: form.fine_enabled ? parseFloat(form.fine_per_day) : 0,
-        grace_period_days: form.fine_enabled ? parseInt(form.grace_period_days) : 10,
-        admission_fee: parseFloat(form.admission_fee) || 0
-      };
+      if (draftSession) {
+        // Individual flow — session already created, fees already saved per class.
+        // Just apply promotions (if any) and flip the draft live.
+        if (promotions.length > 0) {
+          await promoteStudents(draftSession.id, promotions);
+        }
+        await activateSession(draftSession.id);
+        showToast('success', 'Session activated successfully!');
+      } else {
+        // Default / Copy flow — create the session now (goes live immediately).
+        const payload = buildBasicPayload();
+        if (form.fee_mode === 'default') {
+          payload.default_monthly_fee = parseFloat(form.default_monthly_fee);
+        } else if (form.fee_mode === 'copy') {
+          payload.copy_from_session_id = parseInt(form.copy_from_session_id);
+          payload.fee_increase_percent = parseFloat(form.fee_increase_percent);
+        }
 
-      if (form.fee_mode === 'default') {
-        payload.default_monthly_fee = parseFloat(form.default_monthly_fee);
-      } else if (form.fee_mode === 'copy') {
-        payload.copy_from_session_id = parseInt(form.copy_from_session_id);
-        payload.fee_increase_percent = parseFloat(form.fee_increase_percent);
-      } else if (form.fee_mode === 'individual') {
-        payload.student_fees = Object.entries(studentFees)
-          .filter(([_, v]) => v.monthly_fee && parseFloat(v.monthly_fee) > 0)
-          .map(([studentId, v]) => ({
-            student_id: parseInt(studentId),
-            monthly_fee: parseFloat(v.monthly_fee),
-            discount: parseFloat(v.discount) || 0,
-            discount_reason: v.discount_reason || null
-          }));
+        const res = await createSession(payload);
+        if (promotions.length > 0 && res.data.session) {
+          await promoteStudents(res.data.session.id, promotions);
+        }
+        showToast('success', 'Session created successfully!');
       }
 
-      const res = await createSession(payload);
-
-      if (promotions.length > 0 && res.data.session) {
-        await promoteStudents(res.data.session.id, promotions);
-      }
-
-      showToast('success', 'Session created successfully!');
-      setShowCreateForm(false);
-      setStep(1);
-      fetchSessions();
+      resetCreateForm();
     } catch (err) {
       showToast('error', err.response?.data?.message || 'Failed to create session');
     }
@@ -252,6 +300,19 @@ const AdminSessionSetup = () => {
     </div>
   );
 
+  // Editing an existing session's fees — per-class save (Piece 1)
+  if (editSession) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <SessionFeeEditor
+          session={editSession}
+          onClose={() => { setEditSession(null); fetchSessions(); }}
+          onSaved={fetchSessions}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
@@ -267,7 +328,7 @@ const AdminSessionSetup = () => {
         </div>
         {!showCreateForm && (
           <button
-            onClick={() => setShowCreateForm(true)}
+            onClick={() => { setDraftSession(null); setStep(1); setShowCreateForm(true); }}
             className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-colors shadow-lg shadow-brand-500/20"
           >
             <Plus className="w-4 h-4" /> New Session
@@ -448,11 +509,24 @@ const AdminSessionSetup = () => {
               <div className="space-y-5">
                 <h2 className="text-lg font-semibold text-gray-800 font-display">Fee Configuration</h2>
 
+                {draftSession && (
+                  <>
+                    <p className="text-xs text-gray-500">
+                      Draft <strong>{draftSession.name}</strong> created. Enter fees class by class below — each
+                      class saves to the database on its own, so a refresh never loses work and two teachers can
+                      split the classes. Click <strong>Activate &amp; Finish</strong> on the Review step when done.
+                    </p>
+                    <SessionFeeEditor session={draftSession} onSaved={() => {}} />
+                  </>
+                )}
+
+                {!draftSession && (
+                <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {[
                     { key: 'default', label: 'Same for All', desc: 'Set one fee amount for every student' },
                     { key: 'copy', label: 'Copy & Increase', desc: 'Copy from previous session with % increase' },
-                    { key: 'individual', label: 'Set Individually', desc: 'Different fee per student' }
+                    { key: 'individual', label: 'Set Individually', desc: 'Per-class, saved as you go (recommended)' }
                   ].map(mode => (
                     <button
                       key={mode.key}
@@ -511,95 +585,25 @@ const AdminSessionSetup = () => {
                 )}
 
                 {form.fee_mode === 'individual' && (
-                  feeClasses.length === 0 ? (
-                    <p className="text-sm text-gray-400">No students found.</p>
-                  ) : (
-                    <div className="space-y-4">
-                      <p className="text-xs text-gray-400">
-                        Pick a class tab and fill in fees. A tab turns <span className="text-green-600 font-medium">green</span> once every student in it has a fee set.
-                      </p>
-                      <ClassTabs
-                        classList={feeClasses}
-                        selectedId={feeClassTab}
-                        onSelect={setFeeClassTab}
-                        getStatus={feeStatus}
-                      />
-
-                      {/* Apply to all in selected class */}
-                      <div className="bg-brand-50/60 border border-brand-100 rounded-xl p-4 flex flex-wrap items-end gap-3">
-                        <div>
-                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Monthly Fee (₹)</label>
-                          <input type="number" value={bulkFee.monthly_fee} placeholder="e.g. 2000"
-                            onChange={(e) => setBulkFee(prev => ({ ...prev, monthly_fee: e.target.value }))}
-                            className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Discount (₹)</label>
-                          <input type="number" value={bulkFee.discount} placeholder="0"
-                            onChange={(e) => setBulkFee(prev => ({ ...prev, discount: e.target.value }))}
-                            className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Reason</label>
-                          <input type="text" value={bulkFee.discount_reason} placeholder="optional"
-                            onChange={(e) => setBulkFee(prev => ({ ...prev, discount_reason: e.target.value }))}
-                            className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 outline-none" />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => applyFeeToClass(feeClassTab)}
-                          disabled={!(parseFloat(bulkFee.monthly_fee) > 0)}
-                          className="px-4 py-2 bg-brand-500 text-white rounded-lg text-sm font-semibold hover:bg-brand-600 transition-colors disabled:opacity-40"
-                        >
-                          Apply to all in {getClassById(feeClassTab)?.class_name}-{getClassById(feeClassTab)?.section}
-                        </button>
-                      </div>
-
-                      <div className="border border-gray-200 rounded-xl overflow-hidden">
-                        <div className="max-h-96 overflow-y-auto">
-                          <table className="w-full">
-                            <thead className="bg-brand-50 sticky top-0">
-                              <tr>
-                                {['Adm No', 'Student', 'Monthly Fee (₹)', 'Discount (₹)', 'Reason'].map(h => (
-                                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-brand-500 uppercase">{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {students.filter(s => s.class_id === feeClassTab).map((student, i) => {
-                                const fee = studentFees[student.id] || {};
-                                return (
-                                  <tr key={student.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                                    <td className="px-4 py-2 text-sm font-mono text-xs font-semibold text-brand-600">
-                                      {student.admission_number ?? student.id}
-                                    </td>
-                                    <td className="px-4 py-2 text-sm text-gray-800">
-                                      {student.user?.name || `Student ${student.id}`}
-                                    </td>
-                                    <td className="px-4 py-2">
-                                      <input type="number" value={fee.monthly_fee || ''} placeholder="0"
-                                        onChange={(e) => handleStudentFeeChange(student.id, 'monthly_fee', e.target.value)}
-                                        className="w-24 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-brand-500/20 outline-none" />
-                                    </td>
-                                    <td className="px-4 py-2">
-                                      <input type="number" value={fee.discount || ''} placeholder="0"
-                                        onChange={(e) => handleStudentFeeChange(student.id, 'discount', e.target.value)}
-                                        className="w-20 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-brand-500/20 outline-none" />
-                                    </td>
-                                    <td className="px-4 py-2">
-                                      <input type="text" value={fee.discount_reason || ''} placeholder="e.g. Sibling"
-                                        onChange={(e) => handleStudentFeeChange(student.id, 'discount_reason', e.target.value)}
-                                        className="w-32 px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-brand-500/20 outline-none" />
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  )
+                  <div className="bg-brand-50/60 border border-brand-100 rounded-xl p-5 space-y-3">
+                    <p className="text-sm text-gray-600">
+                      You'll enter fees <strong>class by class</strong> and save each class to the database as you
+                      go — nothing is lost on refresh, and two teachers can split the work. We'll first create this
+                      session as an inactive <strong>draft</strong> (your current active session stays untouched
+                      until you Activate at the end).
+                    </p>
+                    <button
+                      type="button"
+                      onClick={createDraft}
+                      disabled={creatingDraft}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-colors disabled:opacity-50"
+                    >
+                      {creatingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      {creatingDraft ? 'Creating draft...' : 'Create draft & start entering fees'}
+                    </button>
+                  </div>
+                )}
+                </>
                 )}
 
                 <div className="flex justify-between">
@@ -765,7 +769,9 @@ const AdminSessionSetup = () => {
                     <p className="text-sm">
                       {form.fee_mode === 'default' && `Same for all: ₹${form.default_monthly_fee}/month`}
                       {form.fee_mode === 'copy' && `Copied from previous + ${form.fee_increase_percent}% increase`}
-                      {form.fee_mode === 'individual' && `Individual fees for ${Object.values(studentFees).filter(f => f.monthly_fee).length} students`}
+                      {form.fee_mode === 'individual' && (draftSession
+                        ? 'Per-class fees entered & saved as a draft'
+                        : 'Individual — create a draft in Step 2 to enter fees')}
                     </p>
                   </div>
                   <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
@@ -779,10 +785,10 @@ const AdminSessionSetup = () => {
                   </button>
                   <div className="flex gap-3">
                     <button
-                      onClick={() => { setShowCreateForm(false); setStep(1); }}
+                      onClick={resetCreateForm}
                       className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
                     >
-                      Cancel
+                      {draftSession ? 'Close (keep draft)' : 'Cancel'}
                     </button>
                     <button
                       onClick={handleCreate}
@@ -790,7 +796,9 @@ const AdminSessionSetup = () => {
                       className="flex items-center gap-2 px-6 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-colors disabled:opacity-50 shadow-lg shadow-brand-500/20"
                     >
                       {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                      {saving ? 'Creating...' : 'Create Session'}
+                      {saving
+                        ? (draftSession ? 'Activating...' : 'Creating...')
+                        : (draftSession ? 'Activate & Finish' : 'Create Session')}
                     </button>
                   </div>
                 </div>
@@ -816,8 +824,10 @@ const AdminSessionSetup = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-800 font-display">{session.name}</span>
-                    {session.is_active && (
+                    {session.is_active ? (
                       <span className="px-2 py-0.5 bg-brand-500 text-white text-[10px] font-bold rounded-full uppercase tracking-wide">Active</span>
+                    ) : (
+                      <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-[10px] font-bold rounded-full uppercase tracking-wide">Draft</span>
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -826,6 +836,22 @@ const AdminSessionSetup = () => {
                     {session.excluded_months?.length > 0 && ` · Vacation: ${session.excluded_months.map(m => MONTH_NAMES[m]?.slice(0, 3)).join(', ')}`}
                     {session.fine_enabled && ` · Fine: ₹${session.fine_per_day}/day`}
                   </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {!session.is_active && (
+                    <button
+                      onClick={() => handleActivate(session)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors"
+                    >
+                      <Check className="w-3.5 h-3.5" /> Activate
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setEditSession(session)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold border border-brand-200 text-brand-600 hover:bg-brand-50 transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Edit Fees
+                  </button>
                 </div>
               </div>
             ))}
