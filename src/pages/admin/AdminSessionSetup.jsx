@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { getSessions, getActiveSession, createSession, updateSessionFees, activateSession, promoteStudents } from '@/services/feeService';
-import { Settings2, Plus, ChevronDown, ChevronUp, Users, ArrowRight, Check, AlertCircle, Loader2, Pencil } from 'lucide-react';
+import { getSessions, getActiveSession, createSession, updateSession, deleteSession, updateSessionFees, activateSession, promoteStudents } from '@/services/feeService';
+import { Settings2, Plus, ChevronDown, ChevronUp, Users, ArrowRight, Check, AlertCircle, Loader2, Pencil, Trash2 } from 'lucide-react';
 import api from '@/services/api';
 import SessionFeeEditor from './SessionFeeEditor';
+import ConfirmDialog from './ConfirmDialog';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -46,13 +47,16 @@ const AdminSessionSetup = () => {
   // Step tracking
   const [step, setStep] = useState(1); // 1: Basic, 2: Fees, 3: Promotion, 4: Review
 
-  // Editing an existing session's fees (Piece 1 — per-class save)
-  const [editSession, setEditSession] = useState(null);
-
-  // New-session draft for the individual (per-class) flow (Piece 2).
-  // Created inactive up-front so per-class fees persist as you go; activated at the end.
+  // New-session draft for the individual (per-class) flow (Piece 2), OR the existing
+  // session being edited. When set, Step 2 shows the per-class SessionFeeEditor.
   const [draftSession, setDraftSession] = useState(null);
   const [creatingDraft, setCreatingDraft] = useState(false);
+  // True when the wizard is editing an existing session (vs creating a new one).
+  const [isEdit, setIsEdit] = useState(false);
+
+  // Confirmation dialog (delete / activate). null = closed.
+  const [confirm, setConfirm] = useState(null); // { title, message, confirmText, danger, onConfirm }
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   useEffect(() => {
     fetchSessions();
@@ -147,28 +151,114 @@ const AdminSessionSetup = () => {
     setCreatingDraft(false);
   };
 
+  const blankForm = () => ({
+    name: '', start_month: 4, start_year: new Date().getFullYear(),
+    excluded_months: [], fine_enabled: false, fine_per_day: 5, grace_period_days: 10,
+    admission_fee: 4000, fee_mode: 'default', default_monthly_fee: '',
+    copy_from_session_id: '', fee_increase_percent: 0
+  });
+
   const resetCreateForm = () => {
     setShowCreateForm(false);
     setStep(1);
     setDraftSession(null);
+    setIsEdit(false);
+    setForm(blankForm());
     fetchSessions();
   };
 
-  // Make a draft/inactive session live from the sessions list.
-  const handleActivate = async (session) => {
-    try {
-      await activateSession(session.id);
-      showToast('success', `"${session.name}" is now the active session`);
-      fetchSessions();
-    } catch (err) {
-      showToast('error', err.response?.data?.message || 'Failed to activate session');
-    }
+  const openNewSession = () => {
+    setDraftSession(null);
+    setIsEdit(false);
+    setForm(blankForm());
+    setStep(1);
+    setShowCreateForm(true);
+  };
+
+  // Open the full wizard prefilled with an existing session (edit mode).
+  const openEditSession = (session) => {
+    setForm({
+      name: session.name || '',
+      start_month: session.start_month,
+      start_year: session.start_year,
+      excluded_months: session.excluded_months || [],
+      fine_enabled: !!session.fine_enabled,
+      fine_per_day: session.fine_per_day ?? 5,
+      grace_period_days: session.grace_period_days ?? 10,
+      admission_fee: session.admission_fee ?? 0,
+      fee_mode: 'individual',
+      default_monthly_fee: '',
+      copy_from_session_id: '',
+      fee_increase_percent: 0
+    });
+    setDraftSession(session);   // Step 2 shows the per-class editor for this session
+    setIsEdit(true);
+    setStep(1);
+    setShowCreateForm(true);
+  };
+
+  // Make a draft/inactive session live from the sessions list (with confirmation).
+  const handleActivate = (session) => {
+    setConfirm({
+      title: 'Activate this session?',
+      message: (
+        <>Make <strong>{session.name}</strong> the active session? This will deactivate the
+        currently active session. Fees and dues will be calculated from this session.</>
+      ),
+      confirmText: 'Activate',
+      danger: false,
+      onConfirm: async () => {
+        setConfirmBusy(true);
+        try {
+          await activateSession(session.id);
+          showToast('success', `"${session.name}" is now the active session`);
+          fetchSessions();
+        } catch (err) {
+          showToast('error', err.response?.data?.message || 'Failed to activate session');
+        }
+        setConfirmBusy(false);
+        setConfirm(null);
+      }
+    });
+  };
+
+  // Delete a session and all its fees (with confirmation).
+  const handleDelete = (session) => {
+    setConfirm({
+      title: 'Delete this session?',
+      message: (
+        <>This permanently deletes <strong>{session.name}</strong> and <strong>all</strong> of its
+        fee configuration and payment records. This cannot be undone.</>
+      ),
+      confirmText: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmBusy(true);
+        try {
+          await deleteSession(session.id);
+          showToast('success', `Session "${session.name}" deleted`);
+          fetchSessions();
+        } catch (err) {
+          showToast('error', err.response?.data?.message || 'Failed to delete session');
+        }
+        setConfirmBusy(false);
+        setConfirm(null);
+      }
+    });
   };
 
   const handleCreate = async () => {
     setSaving(true);
     try {
-      if (draftSession) {
+      if (isEdit && draftSession) {
+        // Edit mode — update the session's basic settings; fees are already saved
+        // per class inline by SessionFeeEditor. Apply any promotions too.
+        await updateSession(draftSession.id, buildBasicPayload());
+        if (promotions.length > 0) {
+          await promoteStudents(draftSession.id, promotions);
+        }
+        showToast('success', 'Session updated successfully!');
+      } else if (draftSession) {
         // Individual flow — session already created, fees already saved per class.
         // Just apply promotions (if any) and flip the draft live.
         if (promotions.length > 0) {
@@ -300,19 +390,6 @@ const AdminSessionSetup = () => {
     </div>
   );
 
-  // Editing an existing session's fees — per-class save (Piece 1)
-  if (editSession) {
-    return (
-      <div className="p-6 max-w-6xl mx-auto">
-        <SessionFeeEditor
-          session={editSession}
-          onClose={() => { setEditSession(null); fetchSessions(); }}
-          onSaved={fetchSessions}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
@@ -328,7 +405,7 @@ const AdminSessionSetup = () => {
         </div>
         {!showCreateForm && (
           <button
-            onClick={() => { setDraftSession(null); setStep(1); setShowCreateForm(true); }}
+            onClick={openNewSession}
             className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-colors shadow-lg shadow-brand-500/20"
           >
             <Plus className="w-4 h-4" /> New Session
@@ -512,9 +589,12 @@ const AdminSessionSetup = () => {
                 {draftSession && (
                   <>
                     <p className="text-xs text-gray-500">
-                      Draft <strong>{draftSession.name}</strong> created. Enter fees class by class below — each
-                      class saves to the database on its own, so a refresh never loses work and two teachers can
-                      split the classes. Click <strong>Activate &amp; Finish</strong> on the Review step when done.
+                      {isEdit ? <>Editing <strong>{draftSession.name}</strong>. </> : <>Draft <strong>{draftSession.name}</strong> created. </>}
+                      Enter fees class by class below — each class saves to the database on its own, so a refresh
+                      never loses work and two teachers can split the classes.
+                      {isEdit
+                        ? <> Click <strong>Save Changes</strong> on the Review step when done.</>
+                        : <> Click <strong>Activate &amp; Finish</strong> on the Review step when done.</>}
                     </p>
                     <SessionFeeEditor session={draftSession} onSaved={() => {}} />
                   </>
@@ -770,7 +850,7 @@ const AdminSessionSetup = () => {
                       {form.fee_mode === 'default' && `Same for all: ₹${form.default_monthly_fee}/month`}
                       {form.fee_mode === 'copy' && `Copied from previous + ${form.fee_increase_percent}% increase`}
                       {form.fee_mode === 'individual' && (draftSession
-                        ? 'Per-class fees entered & saved as a draft'
+                        ? (isEdit ? 'Per-class fees (editing existing session)' : 'Per-class fees entered & saved as a draft')
                         : 'Individual — create a draft in Step 2 to enter fees')}
                     </p>
                   </div>
@@ -788,7 +868,7 @@ const AdminSessionSetup = () => {
                       onClick={resetCreateForm}
                       className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
                     >
-                      {draftSession ? 'Close (keep draft)' : 'Cancel'}
+                      {isEdit ? 'Close' : (draftSession ? 'Close (keep draft)' : 'Cancel')}
                     </button>
                     <button
                       onClick={handleCreate}
@@ -797,8 +877,8 @@ const AdminSessionSetup = () => {
                     >
                       {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                       {saving
-                        ? (draftSession ? 'Activating...' : 'Creating...')
-                        : (draftSession ? 'Activate & Finish' : 'Create Session')}
+                        ? (isEdit ? 'Saving...' : (draftSession ? 'Activating...' : 'Creating...'))
+                        : (isEdit ? 'Save Changes' : (draftSession ? 'Activate & Finish' : 'Create Session'))}
                     </button>
                   </div>
                 </div>
@@ -847,10 +927,16 @@ const AdminSessionSetup = () => {
                     </button>
                   )}
                   <button
-                    onClick={() => setEditSession(session)}
+                    onClick={() => openEditSession(session)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold border border-brand-200 text-brand-600 hover:bg-brand-50 transition-colors"
                   >
-                    <Pencil className="w-3.5 h-3.5" /> Edit Fees
+                    <Pencil className="w-3.5 h-3.5" /> Edit Session
+                  </button>
+                  <button
+                    onClick={() => handleDelete(session)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
                   </button>
                 </div>
               </div>
@@ -858,6 +944,17 @@ const AdminSessionSetup = () => {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirm}
+        title={confirm?.title}
+        message={confirm?.message}
+        confirmText={confirm?.confirmText}
+        danger={confirm?.danger}
+        busy={confirmBusy}
+        onConfirm={confirm?.onConfirm}
+        onCancel={() => { if (!confirmBusy) setConfirm(null); }}
+      />
     </div>
   );
 };

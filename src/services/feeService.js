@@ -5,6 +5,8 @@ export const getSessions = () => api.get('/admin/sessions');
 export const getActiveSession = () => api.get('/admin/sessions/active');
 export const getSessionById = (id) => api.get(`/admin/sessions/${id}`);
 export const createSession = (data) => api.post('/admin/sessions', data);
+export const updateSession = (id, data) => api.put(`/admin/sessions/${id}`, data);
+export const deleteSession = (id) => api.delete(`/admin/sessions/${id}`);
 export const updateSessionFees = (sessionId, data) => api.put(`/admin/sessions/${sessionId}/fees`, data);
 // Activate a draft/inactive session (deactivates all others). Piece 2.
 export const activateSession = (sessionId) => api.put(`/admin/sessions/${sessionId}/activate`);
