@@ -32,6 +32,7 @@ const idealradiant = {
   logo: '', // TODO: S3 URL of the school logo
   tagline: 'Knowledge for Life', // from the Chairman's vision (confirm if there's an official motto)
   established: '2000',
+  board: 'Bhartiya Shiksha Board', // affiliation shown top-right on the report card
 
   // ---- Hero --------------------------------------------------------------
   hero: {
@@ -110,7 +111,7 @@ const idealradiant = {
 
   // ---- Contact -----------------------------------------------------------
   contact: {
-    address: 'B-26, Shiv Vihar Rd, Vikas Nagar, Uttam Nagar, Delhi – 110059',
+    address: 'B-26, Shiv Vihar, Vikas Nagar, Uttam Nagar, New Delhi – 110059',
     phone: '+91 95605 72885',
     email: 'info@idealradiantpublicschool.com', // TODO: confirm real email
     hours: 'Mon–Sat, 8:00 AM – 2:00 PM', // TODO: confirm

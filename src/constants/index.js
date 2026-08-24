@@ -195,6 +195,7 @@ export const SIDEBAR_NAV = {
       title: 'Manage',
       items: [
         { key: 'session', label: 'Session Setup', icon: 'Settings2', path: '/admin/session' },
+        { key: 'holidays', label: 'Holidays', icon: 'CalendarOff', path: '/admin/holidays' },
         { key: 'add-student', label: 'Add Student', icon: 'UserPlus', path: '/admin/add-student' },
         { key: 'add-teacher', label: 'Add Teacher', icon: 'UserPlus', path: '/admin/add-teacher' },
         { key: 'remove-student', label: 'Remove Student', icon: 'UserMinus', path: '/admin/remove-student' },

@@ -80,13 +80,19 @@ const AdminReports = () => {
     // otherwise the conventional public path per hostname. A missing file is hidden
     // by the generator's <img onerror>, so this never shows a broken image.
     const host = (typeof window !== 'undefined' ? window.location.hostname : '').replace(/^www\./, '');
+    // "2026-2027" → "2026–27" for the header session line.
+    const sessionLabel = data?.session
+      ? `${data.session.startYear}–${String(data.session.endYear).slice(-2)}`
+      : '';
     return {
       schoolName: cfg.name,
       schoolLogo: cfg.logo || (host ? `/schools/${host}/logo.png` : ''),
       address: cfg.contact?.address || '',
+      board: cfg.board || '',
+      boardLogo: cfg.boardLogo || (host ? `/schools/${host}/board-logo.png` : ''),
       className: data?.class?.className || '',
       section: data?.class?.section || '',
-      sessionLabel: data?.session ? `${data.session.startYear}-${data.session.endYear}` : '',
+      sessionLabel,
     };
   };
 
