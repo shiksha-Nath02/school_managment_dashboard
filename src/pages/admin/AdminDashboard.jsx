@@ -60,6 +60,12 @@ export default function AdminDashboard() {
     ] : []),
   ];
 
+  // Fit all stat cards on one row: 5 for superadmin, 3 for a regular admin.
+  // (Static class strings so Tailwind's JIT keeps them.)
+  const gridCols = cards.length >= 5 ? 'lg:grid-cols-5'
+    : cards.length === 4 ? 'lg:grid-cols-4'
+    : 'lg:grid-cols-3';
+
   return (
     <div className="animate-fade-up animate-start">
       <h1 className="font-display text-2xl font-bold tracking-tight mb-6">Dashboard</h1>
@@ -71,13 +77,13 @@ export default function AdminDashboard() {
       )}
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className={`grid grid-cols-2 ${gridCols} gap-3 mb-6`}>
         {cards.map((s) => (
-          <div key={s.label} className="bg-white border border-gray-200/80 rounded-xl p-6 hover:-translate-y-0.5 hover:shadow-soft transition-all">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg mb-4 ${s.bg}`}>
+          <div key={s.label} className="bg-white border border-gray-200/80 rounded-xl p-5 hover:-translate-y-0.5 hover:shadow-soft transition-all">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg mb-3 ${s.bg}`}>
               {s.icon}
             </div>
-            <h3 className="font-display text-2xl font-bold">{loading ? '…' : s.val}</h3>
+            <h3 className="font-display text-xl font-bold">{loading ? '…' : s.val}</h3>
             <p className="text-xs text-gray-400 mt-1">{s.label}</p>
           </div>
         ))}
