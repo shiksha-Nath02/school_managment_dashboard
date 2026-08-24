@@ -32,6 +32,7 @@ const idealradiant = {
   logo: '', // TODO: S3 URL of the school logo
   tagline: 'Knowledge for Life', // from the Chairman's vision (confirm if there's an official motto)
   established: '2000',
+  board: 'Bhartiya Shiksha Board', // affiliation shown top-right on the report card
 
   // ---- Hero --------------------------------------------------------------
   hero: {

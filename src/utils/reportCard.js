@@ -53,7 +53,19 @@ function resolveExamLayout(students = []) {
   return { examOrder: [...known, ...extras], terms };
 }
 
-// 8-point grading scale (from the demo report card).
+// 8-point grading scale (from the demo report card). Single source of truth for
+// both computeGrade() and the printed Grading Scale box in the lower section.
+const GRADE_SCALE = [
+  { grade: 'A1', range: '91-100%' },
+  { grade: 'A2', range: '81-90%' },
+  { grade: 'B1', range: '71-80%' },
+  { grade: 'B2', range: '61-70%' },
+  { grade: 'C1', range: '51-60%' },
+  { grade: 'C2', range: '41-50%' },
+  { grade: 'D', range: '33-40%' },
+  { grade: 'E', range: '0-32%' },
+];
+
 export function computeGrade(pct) {
   if (pct === null || pct === undefined || Number.isNaN(pct)) return '-';
   if (pct >= 91) return 'A1';
@@ -66,9 +78,53 @@ export function computeGrade(pct) {
   return 'E';
 }
 
-const GRADE_SCALE_TEXT =
-  '8-Point Grading Scale:  A1 (91-100%)  A2 (81-90%)  B1 (71-80%)  B2 (61-70%)  ' +
-  'C1 (51-60%)  C2 (41-50%)  D (33-40%)  E (0-32%)';
+// Co-scholastic areas printed in the lower section. Grades are shown only if the
+// data model carries them (it currently doesn't), so the Grade cell stays blank.
+const CO_SCHOLASTIC_AREAS = [
+  'Academic Performance',
+  'Co-curricular Activities',
+  'Behaviour & Discipline',
+];
+
+// Subject display order the school asked for. Subjects not in this list are
+// appended (alphabetically) after these, so nothing is dropped.
+const SUBJECT_PRIORITY = [
+  'Hindi', 'English', 'Mathematics', 'Science',
+  'Social Science', 'Computer', 'General Knowledge', 'Drawing',
+];
+
+// Normalise raw subject strings (from the DB) to their canonical display name,
+// so common variants line up with the priority order and read cleanly.
+const SUBJECT_ALIASES = {
+  'maths': 'Mathematics',
+  'math': 'Mathematics',
+  'mathematics': 'Mathematics',
+  'sst': 'Social Science',
+  'social studies': 'Social Science',
+  'social science': 'Social Science',
+  'g.k': 'General Knowledge',
+  'g.k.': 'General Knowledge',
+  'gk': 'General Knowledge',
+  'general knowledge': 'General Knowledge',
+};
+
+function displaySubject(raw) {
+  const key = String(raw || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return SUBJECT_ALIASES[key] || String(raw || '').trim();
+}
+
+// Order raw subject keys by the requested priority (using their display name),
+// then alphabetically for any extras.
+function orderSubjects(subjects = []) {
+  return subjects.slice().sort((a, b) => {
+    const ia = SUBJECT_PRIORITY.indexOf(displaySubject(a));
+    const ib = SUBJECT_PRIORITY.indexOf(displaySubject(b));
+    const ra = ia === -1 ? Number.MAX_SAFE_INTEGER : ia;
+    const rb = ib === -1 ? Number.MAX_SAFE_INTEGER : ib;
+    if (ra !== rb) return ra - rb;
+    return displaySubject(a).localeCompare(displaySubject(b));
+  });
+}
 
 function esc(v) {
   if (v === null || v === undefined) return '';
@@ -127,14 +183,14 @@ function buildMarksTable(student, layout) {
   const { examOrder, terms } = layout;
   const pivot = pivotStudentMarks(student.marks, examOrder);
   const maxes = examMaxes(student.marks, examOrder);
-  const subjects = Object.keys(pivot).sort();
+  const subjects = orderSubjects(Object.keys(pivot));
 
   let grandObtained = 0;
   let grandMax = 0;
   const termTotals = {}; // exam -> obtained sum (for the Total row)
   examOrder.forEach((e) => { termTotals[e] = { obt: 0, has: false }; });
 
-  const rows = subjects.map((subject) => {
+  const rows = subjects.map((subject, i) => {
     const marksByExam = pivot[subject];
     let subjObtained = 0;
     let subjMax = 0;
@@ -156,7 +212,8 @@ function buildMarksTable(student, layout) {
     const subjPct = subjMax ? (subjObtained / subjMax) * 100 : null;
 
     return `<tr>
-      <td class="subj">${esc(subject)}</td>
+      <td class="num sno">${i + 1}</td>
+      <td class="subj">${esc(displaySubject(subject))}</td>
       ${examCells}
       <td class="num strong">${subjMax ? subjObtained : '-'}</td>
       <td class="grade">${computeGrade(subjPct)}</td>
@@ -173,6 +230,7 @@ function buildMarksTable(student, layout) {
     <table class="marks">
       <thead>
         <tr>
+          <th rowspan="2" class="sno-h">S.No.</th>
           <th rowspan="2" class="subj-h">Subject</th>
           ${terms.map((t) => `<th colspan="${t.exams.length}">${t.term}</th>`).join('')}
           <th rowspan="2">Grand Total${grandMax ? ` (${grandMax})` : ''}</th>
@@ -185,9 +243,9 @@ function buildMarksTable(student, layout) {
         </tr>
       </thead>
       <tbody>
-        ${rows || `<tr><td class="subj" colspan="${examOrder.length + 3}" style="text-align:center;color:#888">No marks entered</td></tr>`}
+        ${rows || `<tr><td class="subj" colspan="${examOrder.length + 4}" style="text-align:center;color:#888">No marks entered</td></tr>`}
         <tr class="total-row">
-          <td class="subj strong">Total</td>
+          <td class="subj strong" colspan="2">Total</td>
           ${totalCells}
           <td class="num strong">${grandMax ? grandObtained : '-'}</td>
           <td class="grade">${computeGrade(overallPct)}</td>
@@ -216,11 +274,47 @@ function buildOneCard(student, meta, layout) {
   const result = total ? (pct >= 33 ? 'Pass' : 'Fail') : '-';
   const remark = pickRemark(student);
   const att = student.attendance || {};
+  const workingDays = att.total ?? null;
+  const presentDays = att.present ?? null;
+  const absentDays = (workingDays != null && presentDays != null)
+    ? Math.max(0, workingDays - presentDays)
+    : null;
   const classLabel = meta.section ? `${meta.className} (Section - ${meta.section})` : meta.className;
 
   const logo = meta.schoolLogo
     ? `<img class="logo" src="${esc(meta.schoolLogo)}" alt="" onerror="this.style.display='none'">`
     : '';
+  // Board affiliation, top-right: show the board logo if the school has one, and
+  // fall back to the board name text if the image is missing.
+  const board = meta.board
+    ? `<div class="hdr-board">
+        ${meta.boardLogo
+          ? `<img class="hdr-board-logo" src="${esc(meta.boardLogo)}" alt="${esc(meta.board)}"
+                onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='block';">`
+          : ''}
+        <div class="hdr-board-txt"${meta.boardLogo ? ' style="display:none"' : ''}>${esc(meta.board)}</div>
+      </div>`
+    : '';
+
+  // Lower section: Co-Scholastic Areas | Grade | Attendance | Grading Scale.
+  // Co-scholastic grades are blank until the data model carries them.
+  const coScholasticRows = CO_SCHOLASTIC_AREAS.map((area, i) => {
+    const trailing = i === 0
+      ? `<td class="att-cell" rowspan="${CO_SCHOLASTIC_AREAS.length}">
+           <div class="att-line"><span>Total Working Days</span><span class="att-v">${workingDays ?? '—'}</span></div>
+           <div class="att-line"><span>Total Present Days</span><span class="att-v">${presentDays ?? '—'}</span></div>
+           <div class="att-line"><span>Total Absent Days</span><span class="att-v">${absentDays ?? '—'}</span></div>
+         </td>
+         <td class="scale-cell" rowspan="${CO_SCHOLASTIC_AREAS.length}">
+           ${GRADE_SCALE.map((g) => `<div class="scale-line"><span class="scale-g">${g.grade}</span><span>${g.range}</span></div>`).join('')}
+         </td>`
+      : '';
+    return `<tr>
+      <td class="cs-area">${esc(area)}</td>
+      <td class="cs-grade"></td>
+      ${trailing}
+    </tr>`;
+  }).join('');
 
   return `
   <section class="card">
@@ -229,8 +323,10 @@ function buildOneCard(student, meta, layout) {
       <div class="hdr-txt">
         <h1>${esc(meta.schoolName)}</h1>
         ${meta.address ? `<div class="addr">${esc(meta.address)}</div>` : ''}
-        <div class="sub">Report Card${meta.sessionLabel ? ` &middot; Academic Session ${esc(meta.sessionLabel)}` : ''}</div>
+        <div class="sub">Report Card</div>
+        ${meta.sessionLabel ? `<div class="session">SESSION ${esc(meta.sessionLabel)}</div>` : ''}
       </div>
+      ${board}
     </div>
 
     <table class="info">
@@ -247,14 +343,11 @@ function buildOneCard(student, meta, layout) {
         <td class="k">Mother's Name</td><td class="v">${esc(student.motherName || '')}</td>
       </tr>
       <tr>
-        <td class="k">Class</td><td class="v">${esc(classLabel)}</td>
-        <td class="k">Category</td><td class="v">${esc(student.category || '')}</td>
+        <td class="k">Class</td><td class="v" colspan="3">${esc(classLabel)}</td>
       </tr>
     </table>
 
     ${marksTable}
-
-    <div class="scale">${esc(GRADE_SCALE_TEXT)}</div>
 
     <table class="summary">
       <tr>
@@ -266,12 +359,18 @@ function buildOneCard(student, meta, layout) {
       </tr>
     </table>
 
-    <table class="summary">
-      <tr>
-        <td class="k">Total Working Days</td><td class="v">${att.total ?? ''}</td>
-        <td class="k">Total Present Days</td><td class="v">${att.present ?? ''}</td>
-        <td class="k">Attendance %</td><td class="v">${att.percentage != null ? att.percentage + '%' : ''}</td>
-      </tr>
+    <table class="coscho">
+      <thead>
+        <tr>
+          <th>Co-Scholastic Areas</th>
+          <th>Grade</th>
+          <th>Attendance</th>
+          <th>Grading Scale</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${coScholasticRows}
+      </tbody>
     </table>
 
     <div class="remark"><span class="k">Remarks:</span> ${esc(remark)}</div>
@@ -303,6 +402,10 @@ const STYLES = `
   .hdr-txt h1 { margin: 0; font-size: 22px; letter-spacing: .5px; text-transform: uppercase; }
   .hdr-txt .addr { font-size: 11px; color: #444; margin-top: 2px; }
   .hdr-txt .sub { font-size: 13px; font-weight: 700; margin-top: 4px; }
+  .hdr-txt .session { font-size: 12px; font-weight: 700; letter-spacing: .5px; margin-top: 2px; }
+  .hdr-board { width: 84px; flex-shrink: 0; text-align: center; }
+  .hdr-board-logo { width: 72px; height: 72px; object-fit: contain; }
+  .hdr-board-txt { font-size: 11px; font-weight: 700; color: #333; line-height: 1.25; }
   table { border-collapse: collapse; width: 100%; }
   .info { margin: 12px 0; }
   .info td { border: 1px solid #999; padding: 5px 8px; font-size: 12px; }
@@ -310,19 +413,31 @@ const STYLES = `
   .info .v { width: 35%; }
   .marks th, .marks td { border: 1px solid #333; padding: 4px 6px; font-size: 12px; text-align: center; }
   .marks thead th { background: #f2f2f2; }
+  .marks .sno-h, .marks .sno { width: 36px; }
   .marks .subj-h, .marks .subj { text-align: left; }
   .marks .exam-h .mm { font-weight: 400; font-size: 10px; color: #555; }
   .marks .num { text-align: center; }
   .marks .strong { font-weight: 700; }
   .marks .grade { font-weight: 700; }
   .marks .total-row td { background: #fafafa; }
-  .scale { font-size: 10px; color: #333; border: 1px solid #999; border-top: 0;
-           padding: 4px 6px; }
   .summary { margin-top: 10px; }
   .summary td { border: 1px solid #999; padding: 5px 8px; font-size: 12px; text-align: center; }
   .summary .k { background: #f2f2f2; font-weight: 700; }
+  .coscho { margin-top: 10px; table-layout: fixed; }
+  .coscho th, .coscho td { border: 1px solid #999; padding: 5px 8px; font-size: 11px;
+                           vertical-align: top; }
+  .coscho thead th { background: #f2f2f2; font-size: 12px; text-align: center; }
+  .coscho th:nth-child(1), .coscho td.cs-area { width: 28%; }
+  .coscho th:nth-child(2), .coscho td.cs-grade { width: 14%; text-align: center; }
+  .coscho th:nth-child(3), .coscho td.att-cell { width: 30%; }
+  .coscho th:nth-child(4), .coscho td.scale-cell { width: 28%; }
+  .coscho .cs-area { font-weight: 600; }
+  .att-line, .scale-line { display: flex; justify-content: space-between; gap: 8px;
+                           padding: 1px 0; }
+  .att-line .att-v { font-weight: 700; }
+  .scale-line .scale-g { font-weight: 700; width: 26px; }
   .remark { margin-top: 10px; font-size: 12px; border: 1px solid #999; padding: 8px;
-            min-height: 34px; }
+            min-height: 44px; }
   .remark .k { font-weight: 700; }
   .signs { display: flex; justify-content: space-between; margin-top: auto; padding-top: 30px; }
   .signs .sign { border-top: 1px solid #333; padding-top: 4px; font-size: 12px; width: 28%;

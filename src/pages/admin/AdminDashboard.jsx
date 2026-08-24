@@ -47,9 +47,12 @@ export default function AdminDashboard() {
   }, []);
 
   const stats = data?.stats;
+  const att = data?.classAttendanceToday;
+  const attPct = att && att.totalClasses ? Math.round((att.doneCount / att.totalClasses) * 100) : 0;
   const cards = [
     { icon: '🎓', val: stats ? stats.totalStudents.toLocaleString('en-IN') : '—', label: 'Total Students', bg: 'bg-student-50 text-student-500' },
     { icon: '📚', val: stats ? stats.totalTeachers.toLocaleString('en-IN') : '—', label: 'Total Teachers', bg: 'bg-teacher-50 text-teacher-500' },
+    { icon: '📋', val: att ? `${att.doneCount}/${att.totalClasses}` : '—', label: 'Attendance Done Today', bg: 'bg-brand-50 text-brand-500' },
     // Money cards are superadmin-only.
     ...(showMoney ? [
       { icon: '💰', val: stats ? formatCurrency(stats.feeCollectedMonth) : '—', label: 'Fee Collected (Month)', bg: 'bg-gold-light text-gold' },
@@ -78,6 +81,57 @@ export default function AdminDashboard() {
             <p className="text-xs text-gray-400 mt-1">{s.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Student attendance progress today */}
+      <div className="bg-white border border-gray-200/80 rounded-xl p-7 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h3 className="font-display font-bold text-base">Student Attendance Today</h3>
+          {att && (
+            <span className="text-sm text-gray-500">
+              <span className="font-semibold text-green-600">{att.doneCount}</span> of {att.totalClasses} classes done
+              {att.pendingCount > 0 && (
+                <> · <span className="font-semibold text-red-500">{att.pendingCount}</span> left</>
+              )}
+            </span>
+          )}
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-gray-400">Loading…</p>
+        ) : !att ? (
+          <p className="text-sm text-gray-400">No attendance data.</p>
+        ) : (
+          <>
+            {/* Progress bar */}
+            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden mb-5">
+              <div
+                className="h-2 bg-green-500 rounded-full transition-all"
+                style={{ width: `${attPct}%` }}
+              />
+            </div>
+
+            {att.pendingCount === 0 ? (
+              <p className="text-sm text-green-600 font-medium">🎉 All classes have marked attendance today.</p>
+            ) : (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-300 mb-2">
+                  Pending classes ({att.pendingCount})
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {att.pending.map((c) => (
+                    <span
+                      key={c.id}
+                      className="inline-block px-2.5 py-1 rounded-lg text-[13px] font-medium bg-red-50 text-red-600"
+                    >
+                      {c.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Two-column tables */}
