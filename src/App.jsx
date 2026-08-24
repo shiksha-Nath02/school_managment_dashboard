@@ -60,6 +60,7 @@ import AdminWebsite from './pages/admin/AdminWebsite';
 import AdminReports from './pages/admin/AdminReports';
 import AdminStudentAttendance from './pages/admin/AdminStudentAttendance';
 import AdminUploadAttendance from './pages/admin/AdminUploadAttendance';
+import AdminHolidays from './pages/admin/AdminHolidays';
 
 export default function App() {
   return (
@@ -141,6 +142,7 @@ export default function App() {
         <Route path="add-teacher" element={<AdminAddTeacherPage />} />
         <Route path="remove-student" element={<AdminRemoveStudentPage />} />
         <Route path="session" element={<AdminSessionSetup />} />
+        <Route path="holidays" element={<AdminHolidays />} />
         <Route path="website" element={<AdminWebsite />} />
       </Route>
 

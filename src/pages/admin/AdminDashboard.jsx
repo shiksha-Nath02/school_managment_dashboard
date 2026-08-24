@@ -47,15 +47,24 @@ export default function AdminDashboard() {
   }, []);
 
   const stats = data?.stats;
+  const att = data?.classAttendanceToday;
+  const attPct = att && att.totalClasses ? Math.round((att.doneCount / att.totalClasses) * 100) : 0;
   const cards = [
     { icon: '🎓', val: stats ? stats.totalStudents.toLocaleString('en-IN') : '—', label: 'Total Students', bg: 'bg-student-50 text-student-500' },
     { icon: '📚', val: stats ? stats.totalTeachers.toLocaleString('en-IN') : '—', label: 'Total Teachers', bg: 'bg-teacher-50 text-teacher-500' },
+    { icon: '📋', val: att ? (att.isHoliday ? 'Holiday' : `${att.doneCount}/${att.totalClasses}`) : '—', label: 'Attendance Done Today', bg: 'bg-brand-50 text-brand-500' },
     // Money cards are superadmin-only.
     ...(showMoney ? [
       { icon: '💰', val: stats ? formatCurrency(stats.feeCollectedMonth) : '—', label: 'Fee Collected (Month)', bg: 'bg-gold-light text-gold' },
       { icon: '📈', val: stats ? formatCurrency(stats.netProfitMonth) : '—', label: 'Net Profit (Month)', bg: 'bg-green-50 text-green-600' },
     ] : []),
   ];
+
+  // Fit all stat cards on one row: 5 for superadmin, 3 for a regular admin.
+  // (Static class strings so Tailwind's JIT keeps them.)
+  const gridCols = cards.length >= 5 ? 'lg:grid-cols-5'
+    : cards.length === 4 ? 'lg:grid-cols-4'
+    : 'lg:grid-cols-3';
 
   return (
     <div className="animate-fade-up animate-start">
@@ -68,16 +77,95 @@ export default function AdminDashboard() {
       )}
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className={`grid grid-cols-2 ${gridCols} gap-3 mb-6`}>
         {cards.map((s) => (
-          <div key={s.label} className="bg-white border border-gray-200/80 rounded-xl p-6 hover:-translate-y-0.5 hover:shadow-soft transition-all">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg mb-4 ${s.bg}`}>
+          <div key={s.label} className="bg-white border border-gray-200/80 rounded-xl p-5 hover:-translate-y-0.5 hover:shadow-soft transition-all">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg mb-3 ${s.bg}`}>
               {s.icon}
             </div>
-            <h3 className="font-display text-2xl font-bold">{loading ? '…' : s.val}</h3>
+            <h3 className="font-display text-xl font-bold">{loading ? '…' : s.val}</h3>
             <p className="text-xs text-gray-400 mt-1">{s.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Student attendance progress today */}
+      <div className="bg-white border border-gray-200/80 rounded-xl p-7 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h3 className="font-display font-bold text-base">Student Attendance Today</h3>
+          {att && (
+            <span className="text-sm text-gray-500">
+              <span className="font-semibold text-green-600">{att.doneCount}</span> of {att.totalClasses} classes done
+              {att.pendingCount > 0 && (
+                <> · <span className="font-semibold text-red-500">{att.pendingCount}</span> left</>
+              )}
+            </span>
+          )}
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-gray-400">Loading…</p>
+        ) : !att ? (
+          <p className="text-sm text-gray-400">No attendance data.</p>
+        ) : att.isHoliday ? (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+            🎉 <span className="font-semibold">Holiday{att.holidayReason ? ` — ${att.holidayReason}` : ''}.</span>{' '}
+            No attendance required today.
+            {att.doneCount > 0 && ` (${att.doneCount} class${att.doneCount === 1 ? '' : 'es'} marked anyway.)`}
+          </div>
+        ) : (
+          <>
+            {/* Progress bar */}
+            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden mb-5">
+              <div
+                className="h-2 bg-green-500 rounded-full transition-all"
+                style={{ width: `${attPct}%` }}
+              />
+            </div>
+
+            <div className="space-y-4">
+              {/* Done classes */}
+              {att.doneCount > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-300 mb-2">
+                    ✓ Attendance done ({att.doneCount})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {att.done.map((c) => (
+                      <span
+                        key={c.id}
+                        className="inline-block px-2.5 py-1 rounded-lg text-[13px] font-medium bg-green-50 text-green-600"
+                      >
+                        {c.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pending classes */}
+              {att.pendingCount === 0 ? (
+                <p className="text-sm text-green-600 font-medium">🎉 All classes have marked attendance today.</p>
+              ) : (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-300 mb-2">
+                    Pending ({att.pendingCount})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {att.pending.map((c) => (
+                      <span
+                        key={c.id}
+                        className="inline-block px-2.5 py-1 rounded-lg text-[13px] font-medium bg-red-50 text-red-600"
+                      >
+                        {c.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Two-column tables */}
