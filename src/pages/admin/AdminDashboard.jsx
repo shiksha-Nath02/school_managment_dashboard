@@ -52,7 +52,7 @@ export default function AdminDashboard() {
   const cards = [
     { icon: '🎓', val: stats ? stats.totalStudents.toLocaleString('en-IN') : '—', label: 'Total Students', bg: 'bg-student-50 text-student-500' },
     { icon: '📚', val: stats ? stats.totalTeachers.toLocaleString('en-IN') : '—', label: 'Total Teachers', bg: 'bg-teacher-50 text-teacher-500' },
-    { icon: '📋', val: att ? `${att.doneCount}/${att.totalClasses}` : '—', label: 'Attendance Done Today', bg: 'bg-brand-50 text-brand-500' },
+    { icon: '📋', val: att ? (att.isHoliday ? 'Holiday' : `${att.doneCount}/${att.totalClasses}`) : '—', label: 'Attendance Done Today', bg: 'bg-brand-50 text-brand-500' },
     // Money cards are superadmin-only.
     ...(showMoney ? [
       { icon: '💰', val: stats ? formatCurrency(stats.feeCollectedMonth) : '—', label: 'Fee Collected (Month)', bg: 'bg-gold-light text-gold' },
@@ -107,6 +107,12 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-400">Loading…</p>
         ) : !att ? (
           <p className="text-sm text-gray-400">No attendance data.</p>
+        ) : att.isHoliday ? (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+            🎉 <span className="font-semibold">Holiday{att.holidayReason ? ` — ${att.holidayReason}` : ''}.</span>{' '}
+            No attendance required today.
+            {att.doneCount > 0 && ` (${att.doneCount} class${att.doneCount === 1 ? '' : 'es'} marked anyway.)`}
+          </div>
         ) : (
           <>
             {/* Progress bar */}
@@ -117,25 +123,47 @@ export default function AdminDashboard() {
               />
             </div>
 
-            {att.pendingCount === 0 ? (
-              <p className="text-sm text-green-600 font-medium">🎉 All classes have marked attendance today.</p>
-            ) : (
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-300 mb-2">
-                  Pending classes ({att.pendingCount})
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {att.pending.map((c) => (
-                    <span
-                      key={c.id}
-                      className="inline-block px-2.5 py-1 rounded-lg text-[13px] font-medium bg-red-50 text-red-600"
-                    >
-                      {c.name}
-                    </span>
-                  ))}
+            <div className="space-y-4">
+              {/* Done classes */}
+              {att.doneCount > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-300 mb-2">
+                    ✓ Attendance done ({att.doneCount})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {att.done.map((c) => (
+                      <span
+                        key={c.id}
+                        className="inline-block px-2.5 py-1 rounded-lg text-[13px] font-medium bg-green-50 text-green-600"
+                      >
+                        {c.name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* Pending classes */}
+              {att.pendingCount === 0 ? (
+                <p className="text-sm text-green-600 font-medium">🎉 All classes have marked attendance today.</p>
+              ) : (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-300 mb-2">
+                    Pending ({att.pendingCount})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {att.pending.map((c) => (
+                      <span
+                        key={c.id}
+                        className="inline-block px-2.5 py-1 rounded-lg text-[13px] font-medium bg-red-50 text-red-600"
+                      >
+                        {c.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>

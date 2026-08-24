@@ -111,7 +111,7 @@ const idealradiant = {
 
   // ---- Contact -----------------------------------------------------------
   contact: {
-    address: 'B-26, Shiv Vihar Rd, Vikas Nagar, Uttam Nagar, Delhi – 110059',
+    address: 'B-26, Shiv Vihar, Vikas Nagar, Uttam Nagar, New Delhi – 110059',
     phone: '+91 95605 72885',
     email: 'info@idealradiantpublicschool.com', // TODO: confirm real email
     hours: 'Mon–Sat, 8:00 AM – 2:00 PM', // TODO: confirm
