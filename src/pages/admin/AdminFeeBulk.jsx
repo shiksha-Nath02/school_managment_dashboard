@@ -19,6 +19,7 @@ const AdminFeeBulk = () => {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [results, setResults] = useState(null);
+  const [failed, setFailed] = useState(null);   // rows the server could NOT save (kept editable to retry)
   const [nameFilter, setNameFilter] = useState('');
   const [admissionFilter, setAdmissionFilter] = useState('');
   // Sell-item dialogs, so a teacher can sell uniform/books without leaving this tab.
@@ -40,9 +41,10 @@ const AdminFeeBulk = () => {
       .catch(console.error);
   }, []);
 
-  const fetchStudents = async ({ clearResults = true } = {}) => {
+  // `restore` lets a caller re-inject payment inputs after a refetch (used to keep failed rows filled for retry).
+  const fetchStudents = async ({ clearResults = true, restore = null } = {}) => {
     if (!selectedClass) return;
-    if (clearResults) setResults(null);
+    if (clearResults) { setResults(null); setFailed(null); }
     setLoading(true);
     try {
       const res = await api.get(`/admin/students?class_id=${selectedClass}`);
@@ -70,6 +72,7 @@ const AdminFeeBulk = () => {
       setStudents(enriched);
       const payMap = {};
       enriched.forEach(s => { payMap[s.id] = { amount: '', previous_dues: '', advance: '', adm_discount: '', adm_pay: '', payment_method: 'cash' }; });
+      if (restore) restore(payMap);
       setPayments(payMap);
     } catch (err) {
       console.error(err);
@@ -92,7 +95,9 @@ const AdminFeeBulk = () => {
 
   const handleSaveAll = async () => {
     const hasAdmDisc = (v) => v.adm_discount !== '' && v.adm_discount != null;
+    const alreadySaved = (id) => !!results?.some(r => r.student_id === parseInt(id));
     const paymentsList = Object.entries(payments)
+      .filter(([id]) => !alreadySaved(id))   // never re-submit a row the server already saved
       .filter(([_, v]) => (parseFloat(v.amount) || 0) > 0 || (parseFloat(v.previous_dues) || 0) > 0
                           || (parseFloat(v.advance) || 0) > 0
                           || (parseFloat(v.adm_pay) || 0) > 0 || hasAdmDisc(v))
@@ -111,6 +116,7 @@ const AdminFeeBulk = () => {
       return;
     }
 
+    const submitted = payments;   // snapshot so we can re-fill any rows the server rejects
     setSaving(true);
     try {
       const res = await recordBulkPayment({
@@ -120,9 +126,27 @@ const AdminFeeBulk = () => {
         payment_date: paymentDate,
       });
       const saveBody = res?.data ?? res;
-      showToast('success', `${saveBody.results?.length ?? 0} payments recorded successfully!`);
-      setResults(saveBody.results ?? []);
-      await fetchStudents({ clearResults: false });
+      const okList  = saveBody.results ?? [];
+      const errList = saveBody.errors ?? [];
+
+      // Merge with any previously-saved rows so a retry keeps the full saved set.
+      setResults(prev => [...(prev ?? []), ...okList]);
+      setFailed(errList);
+
+      if (errList.length) {
+        showToast('error', `${okList.length} saved · ${errList.length} FAILED — the red rows were NOT recorded, please retry them`);
+      } else {
+        showToast('success', `${okList.length} payment${okList.length !== 1 ? 's' : ''} recorded successfully!`);
+      }
+
+      // Refresh pending balances, but re-inject the failed rows' inputs so they can be retried immediately.
+      const failedIds = new Set(errList.map(e => e.student_id));
+      await fetchStudents({
+        clearResults: false,
+        restore: failedIds.size
+          ? (payMap) => { failedIds.forEach(id => { if (submitted[id]) payMap[id] = submitted[id]; }); }
+          : null,
+      });
     } catch (err) {
       showToast('error', err.response?.data?.message || 'Failed to record payments');
     }
@@ -272,6 +296,8 @@ const AdminFeeBulk = () => {
               {filteredStudents.map((student, i) => {
                 const pay = payments[student.id] || {};
                 const result = results?.find(r => r.student_id === student.id);
+                const failEntry = failed?.find(f => f.student_id === student.id);
+                const locked = !!result;   // only rows the server actually saved get locked
                 const prevDues = parseFloat(pay.previous_dues) || 0;
                 const advance = parseFloat(pay.advance) || 0;
                 const amt = parseFloat(pay.amount) || 0;
@@ -283,7 +309,7 @@ const AdminFeeBulk = () => {
                   ? Math.max(0, adm.annual_charge - admEffDisc - adm.paid_amount)
                   : 0;
                 return (
-                  <tr key={student.id} className={`border-t border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
+                  <tr key={student.id} className={`border-t border-gray-100 ${failEntry ? 'bg-red-50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                     <td className="px-4 py-3 text-sm text-gray-400 tabular-nums">{student.roll_number}</td>
                     <td className="px-4 py-3 text-xs font-mono font-bold text-brand-600">{student.admission_number ?? student.id}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">
@@ -301,7 +327,7 @@ const AdminFeeBulk = () => {
                           value={pay.previous_dues || ''}
                           onChange={(e) => handlePaymentChange(student.id, 'previous_dues', e.target.value)}
                           placeholder="0"
-                          disabled={!!results}
+                          disabled={locked}
                           title="Arrears from before the ledger started (added once). Leave blank if none."
                           className="w-24 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none disabled:bg-gray-50"
                         />
@@ -318,7 +344,7 @@ const AdminFeeBulk = () => {
                         value={pay.advance || ''}
                         onChange={(e) => handlePaymentChange(student.id, 'advance', e.target.value)}
                         placeholder="0"
-                        disabled={!!results}
+                        disabled={locked}
                         title="Advance credit paid ahead before the ledger started (added once). Lowers dues; NOT counted as income."
                         className="w-24 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none disabled:bg-gray-50"
                       />
@@ -329,7 +355,7 @@ const AdminFeeBulk = () => {
                         value={pay.amount || ''}
                         onChange={(e) => handlePaymentChange(student.id, 'amount', e.target.value)}
                         placeholder="0"
-                        disabled={!!results}
+                        disabled={locked}
                         className="w-28 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none disabled:bg-gray-50"
                       />
                     </td>
@@ -347,14 +373,14 @@ const AdminFeeBulk = () => {
                     <td className="px-4 py-3">
                       <input type="number" value={pay.adm_discount ?? ''}
                         onChange={(e) => handlePaymentChange(student.id, 'adm_discount', e.target.value)}
-                        placeholder="0" disabled={!!results || !adm}
+                        placeholder="0" disabled={locked || !adm}
                         title="Admission fee rebate for this student"
                         className="w-20 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none disabled:bg-gray-50" />
                     </td>
                     <td className="px-4 py-3">
                       <input type="number" value={pay.adm_pay ?? ''}
                         onChange={(e) => handlePaymentChange(student.id, 'adm_pay', e.target.value)}
-                        placeholder="0" disabled={!!results || !adm}
+                        placeholder="0" disabled={locked || !adm}
                         title="Admission fee being collected now (counts as income)"
                         className="w-24 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none disabled:bg-gray-50" />
                     </td>
@@ -362,7 +388,7 @@ const AdminFeeBulk = () => {
                       <select
                         value={pay.payment_method || 'cash'}
                         onChange={(e) => handlePaymentChange(student.id, 'payment_method', e.target.value)}
-                        disabled={!!results}
+                        disabled={locked}
                         className="px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-brand-500/20 outline-none disabled:bg-gray-50"
                       >
                         <option value="cash">Cash</option>
@@ -373,11 +399,16 @@ const AdminFeeBulk = () => {
                       </select>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {result && (
+                      {result ? (
                         <span className="inline-flex items-center gap-1 text-green-600 text-xs font-medium">
                           <CheckCircle className="w-3.5 h-3.5" /> {result.receipt_number}
                         </span>
-                      )}
+                      ) : failEntry ? (
+                        <span className="inline-flex items-center gap-1 text-red-600 text-xs font-semibold"
+                          title={failEntry.error || 'Not saved — please retry'}>
+                          <AlertTriangle className="w-3.5 h-3.5" /> Failed — retry
+                        </span>
+                      ) : null}
                     </td>
                   </tr>
                 );
