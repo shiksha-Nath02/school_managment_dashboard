@@ -162,7 +162,8 @@ const AdminFeeIndividual = () => {
   const handleBulkCsvRow = async (row) => {
     if (!row.admission_number || !row.amount) throw new Error('admission_number and amount required');
     await recordPayment({
-      student_id:     parseInt(row.admission_number, 10),
+      // admission_number is NOT the student PK — send it as-is and let the server resolve it.
+      admission_number: String(row.admission_number).trim(),
       amount:         parseFloat(row.amount),
       payment_date:   row.payment_date || new Date().toISOString().split('T')[0],
       billing_month:  parseInt(row.billing_month || new Date().getMonth() + 1, 10),

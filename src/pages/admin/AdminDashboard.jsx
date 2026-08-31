@@ -170,10 +170,18 @@ export default function AdminDashboard() {
 
       {/* Two-column tables */}
       <div className="grid lg:grid-cols-2 gap-5">
-        {/* Recent Fee Payments */}
+        {/* Today's Fee Collection */}
         <div className="bg-white border border-gray-200/80 rounded-xl p-7">
-          <h3 className="font-display font-bold text-base mb-5">Recent Fee Payments</h3>
-          <div className="overflow-x-auto">
+          <div className="flex items-baseline justify-between mb-5">
+            <h3 className="font-display font-bold text-base">Today's Fee Collection</h3>
+            {!!data?.recentPayments?.length && (
+              <span className="text-xs font-medium text-gray-400">
+                {data.recentPayments.length} payment{data.recentPayments.length !== 1 ? 's' : ''}
+                {showMoney && <> · {formatCurrency(data.recentPayments.reduce((s, r) => s + (Number(r.amount) || 0), 0))}</>}
+              </span>
+            )}
+          </div>
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
@@ -186,7 +194,7 @@ export default function AdminDashboard() {
                 {loading ? (
                   <tr><td colSpan={showMoney ? 3 : 2} className="py-6 text-center text-sm text-gray-400">Loading…</td></tr>
                 ) : !data?.recentPayments?.length ? (
-                  <tr><td colSpan={showMoney ? 3 : 2} className="py-6 text-center text-sm text-gray-400">No recent payments</td></tr>
+                  <tr><td colSpan={showMoney ? 3 : 2} className="py-6 text-center text-sm text-gray-400">No payments yet today</td></tr>
                 ) : (
                   data.recentPayments.map((r) => (
                     <tr key={r.id} className="hover:bg-surface-alt/50 transition-colors">
