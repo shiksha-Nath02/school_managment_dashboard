@@ -112,7 +112,7 @@ const AdminFeeBulk = () => {
       }));
 
     if (paymentsList.length === 0) {
-      showToast('error', 'Enter at least one payment, previous dues, advance, or admission fee');
+      showToast('error', 'Enter at least one payment, previous dues, advance, or annual fee');
       return;
     }
 
@@ -255,7 +255,7 @@ const AdminFeeBulk = () => {
             <strong>{payingCount}</strong> student{payingCount !== 1 ? 's' : ''} &nbsp;·&nbsp; Collecting: <strong>₹{totalBeingPaid.toLocaleString()}</strong>
             {totalPrevDues > 0 && <> &nbsp;·&nbsp; <span className="text-amber-600">Prev dues added: ₹{totalPrevDues.toLocaleString()}</span></>}
             {totalAdvance > 0 && <> &nbsp;·&nbsp; <span className="text-green-600">Advance credit: ₹{totalAdvance.toLocaleString()}</span></>}
-            {totalAdmPay > 0 && <> &nbsp;·&nbsp; <span className="text-brand-600">Admission: ₹{totalAdmPay.toLocaleString()}</span></>}
+            {totalAdmPay > 0 && <> &nbsp;·&nbsp; <span className="text-brand-600">Annual: ₹{totalAdmPay.toLocaleString()}</span></>}
           </div>
           <button
             onClick={handleSaveAll}
@@ -285,7 +285,7 @@ const AdminFeeBulk = () => {
           <table className="w-full min-w-[1100px]">
             <thead className="bg-brand-50">
               <tr>
-                {['Roll', 'Admission No.', 'Student Name', 'Pending', 'Previous Dues', 'Advance', 'Amount (₹)', 'New Pending', 'Adm Fee', 'Adm Disc', 'Adm Pay', 'Method', 'Status'].map((h) => (
+                {['Roll', 'Admission No.', 'Student Name', 'Pending', 'Previous Dues', 'Advance', 'Amount (₹)', 'New Pending', 'Annual Fee', 'Annual Disc', 'Annual Pay', 'Method', 'Status'].map((h) => (
                   <th key={h} className={`px-4 py-3 text-xs font-semibold text-brand-500 uppercase ${(h === 'Pending' || h === 'New Pending') ? 'text-right' : h === 'Status' ? 'text-center' : 'text-left'}`}>
                     {h}
                   </th>
@@ -374,14 +374,14 @@ const AdminFeeBulk = () => {
                       <input type="number" value={pay.adm_discount ?? ''}
                         onChange={(e) => handlePaymentChange(student.id, 'adm_discount', e.target.value)}
                         placeholder="0" disabled={locked || !adm}
-                        title="Admission fee rebate for this student"
+                        title="Annual fee rebate for this student"
                         className="w-20 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none disabled:bg-gray-50" />
                     </td>
                     <td className="px-4 py-3">
                       <input type="number" value={pay.adm_pay ?? ''}
                         onChange={(e) => handlePaymentChange(student.id, 'adm_pay', e.target.value)}
                         placeholder="0" disabled={locked || !adm}
-                        title="Admission fee being collected now (counts as income)"
+                        title="Annual fee being collected now (counts as income)"
                         className="w-24 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none disabled:bg-gray-50" />
                     </td>
                     <td className="px-4 py-3">
