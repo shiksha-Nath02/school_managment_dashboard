@@ -43,7 +43,7 @@ export default function AdminStaff() {
   const remove = async (s) => {
     if (!confirm(`Remove ${s.name}?`)) return;
     try { const d = await svc.deleteStaff(s.id); load(); showToast('success', d.message || 'Removed'); }
-    catch { showToast('error', 'Failed to remove'); }
+    catch (e) { showToast('error', e.response?.data?.message || 'Failed to remove'); }
   };
 
   return (
