@@ -23,7 +23,7 @@ const AdminSessionSetup = () => {
     fine_enabled: false,
     fine_per_day: 5,
     grace_period_days: 10,
-    admission_fee: 4000,
+    annual_fee: 4000,
     fee_mode: 'default', // 'default' | 'copy' | 'individual'
     default_monthly_fee: '',
     copy_from_session_id: '',
@@ -128,7 +128,7 @@ const AdminSessionSetup = () => {
     fine_enabled: form.fine_enabled,
     fine_per_day: form.fine_enabled ? parseFloat(form.fine_per_day) : 0,
     grace_period_days: form.fine_enabled ? parseInt(form.grace_period_days) : 10,
-    admission_fee: parseFloat(form.admission_fee) || 0
+    annual_fee: parseFloat(form.annual_fee) || 0
   });
 
   // Individual (per-class) flow: create the session up-front as an inactive DRAFT
@@ -154,7 +154,7 @@ const AdminSessionSetup = () => {
   const blankForm = () => ({
     name: '', start_month: 4, start_year: new Date().getFullYear(),
     excluded_months: [], fine_enabled: false, fine_per_day: 5, grace_period_days: 10,
-    admission_fee: 4000, fee_mode: 'default', default_monthly_fee: '',
+    annual_fee: 4000, fee_mode: 'default', default_monthly_fee: '',
     copy_from_session_id: '', fee_increase_percent: 0
   });
 
@@ -185,7 +185,7 @@ const AdminSessionSetup = () => {
       fine_enabled: !!session.fine_enabled,
       fine_per_day: session.fine_per_day ?? 5,
       grace_period_days: session.grace_period_days ?? 10,
-      admission_fee: session.admission_fee ?? 0,
+      annual_fee: session.annual_fee ?? 0,
       fee_mode: 'individual',
       default_monthly_fee: '',
       copy_from_session_id: '',
@@ -491,13 +491,13 @@ const AdminSessionSetup = () => {
                   </div>
                 </div>
 
-                {/* Admission fee */}
+                {/* Annual fee */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Admission Fee (annual, ₹)</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Annual Fee (₹)</label>
                   <input
                     type="number"
-                    value={form.admission_fee}
-                    onChange={(e) => setForm(prev => ({ ...prev, admission_fee: e.target.value }))}
+                    value={form.annual_fee}
+                    onChange={(e) => setForm(prev => ({ ...prev, annual_fee: e.target.value }))}
                     placeholder="e.g. 4000"
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
                   />

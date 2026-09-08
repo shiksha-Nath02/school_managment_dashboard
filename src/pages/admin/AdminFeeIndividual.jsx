@@ -32,7 +32,7 @@ const TYPE_TAG = {
   advance:   { label: 'Advance',      cls: 'bg-blue-50 text-blue-600' },
   prevdues:  { label: 'Previous dues', cls: 'bg-amber-50 text-amber-700' },
   reversal:  { label: 'Reversal',     cls: 'bg-red-50 text-red-600' },
-  admission: { label: 'Admission',    cls: 'bg-purple-50 text-purple-600' },
+  admission: { label: 'Annual',       cls: 'bg-purple-50 text-purple-600' },
 };
 
 const AdminFeeIndividual = () => {
@@ -201,7 +201,7 @@ const AdminFeeIndividual = () => {
         key: `a${a.id}`, kind: 'admission', raw: a, type: 'admission',
         entered_at: a.created_at,
         payment_date: null,
-        detail: `Admission fee${a.session_name ? ` · ${a.session_name}` : ''}`,
+        detail: `Annual fee${a.session_name ? ` · ${a.session_name}` : ''}`,
         paid: a.paid_amount, fine: 0, prev_dues: 0, advance: 0, discount: a.discount,
         pending_after: undefined,
         method: null, receipt: null,
@@ -381,7 +381,7 @@ const AdminFeeIndividual = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-800 font-display">Fee Transactions</h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5">Every fee-related entry — payments, fines, previous dues, advance & admission fee. Advance & previous dues adjust the balance but are not counted as income.</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Every fee-related entry — payments, fines, previous dues, advance & annual fee. Advance & previous dues adjust the balance but are not counted as income.</p>
                 </div>
                 <button onClick={exportCsv} className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-all shrink-0">
                   <Download className="w-3.5 h-3.5" /> Export CSV

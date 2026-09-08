@@ -49,7 +49,7 @@ const AdminTransactions = () => {
         <h1 className="text-2xl font-bold text-gray-800 font-display flex items-center gap-2">
           <ArrowLeftRight className="w-6 h-6 text-brand-500" /> Transactions
         </h1>
-        <p className="text-gray-400 text-sm mt-1">Every money movement — fees, fine, admission, uniform, books & expenses — for the selected dates</p>
+        <p className="text-gray-400 text-sm mt-1">Every money movement — fees, fine, annual fee, uniform, books & expenses — for the selected dates</p>
       </div>
 
       {/* Filters */}
