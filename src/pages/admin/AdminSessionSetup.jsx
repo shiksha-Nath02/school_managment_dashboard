@@ -277,8 +277,18 @@ const AdminSessionSetup = () => {
         }
 
         const res = await createSession(payload);
+        // The session is now persisted. A promotion failure below must NOT be
+        // reported as "failed to create" (that leaves an orphaned session and a
+        // duplicate on retry) — handle it separately and still reset the form.
         if (promotions.length > 0 && res.data.session) {
-          await promoteStudents(res.data.session.id, promotions);
+          try {
+            await promoteStudents(res.data.session.id, promotions);
+          } catch (pErr) {
+            showToast('error', `Session created, but promotions failed: ${pErr.response?.data?.message || 'unknown error'}. Reopen the session to retry.`);
+            resetCreateForm();
+            setSaving(false);
+            return;
+          }
         }
         showToast('success', 'Session created successfully!');
       }

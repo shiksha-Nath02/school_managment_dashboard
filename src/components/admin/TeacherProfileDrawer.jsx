@@ -59,6 +59,7 @@ function InfoTab({ teacher, onUpdated, isSuperAdmin }) {
   // Local mirror so the toggle reflects instantly; seeded from the teacher record.
   const [canEdit, setCanEdit]   = useState(!!teacher.can_edit_students);
   const [permSaving, setPermSaving] = useState(false);
+  const [permErr, setPermErr]   = useState('');
 
   useEffect(() => { setCanEdit(!!teacher.can_edit_students); }, [teacher]);
 
@@ -113,12 +114,14 @@ function InfoTab({ teacher, onUpdated, isSuperAdmin }) {
   const togglePermission = async () => {
     const next = !canEdit;
     setPermSaving(true);
+    setPermErr('');
     setCanEdit(next); // optimistic
     try {
       await teacherService.setTeacherPermissions(teacher.id, next);
       onUpdated?.(null);
-    } catch {
+    } catch (e) {
       setCanEdit(!next); // revert on failure
+      setPermErr(e.response?.data?.message || 'Failed to update permission. Please try again.');
     } finally {
       setPermSaving(false);
     }
@@ -165,6 +168,7 @@ function InfoTab({ teacher, onUpdated, isSuperAdmin }) {
           <div className="flex-1">
             <p className="text-sm font-semibold text-gray-800">Can edit students</p>
             <p className="text-xs text-gray-500 mt-0.5">Allow this teacher to edit profiles of students in her own class.</p>
+            {permErr && <p className="text-xs text-red-600 mt-1.5 font-medium">{permErr}</p>}
           </div>
           <button
             onClick={togglePermission}

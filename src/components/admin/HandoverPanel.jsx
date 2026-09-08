@@ -93,8 +93,8 @@ export default function HandoverPanel() {
       await svc.deleteHandover(h.id);
       setHandovers((prev) => prev.filter((x) => x.id !== h.id));
       load();
-    } catch {
-      showToast('error', 'Failed to delete');
+    } catch (e) {
+      showToast('error', e.response?.data?.message || 'Failed to delete');
     }
   };
 

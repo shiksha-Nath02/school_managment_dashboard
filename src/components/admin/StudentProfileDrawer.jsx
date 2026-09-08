@@ -181,6 +181,13 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
               <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
 
+            {saveErr && (
+              <div className="mx-6 mt-4 shrink-0 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{saveErr}</span>
+              </div>
+            )}
+
             <div className="overflow-y-auto px-6 py-4 space-y-4">
               {/* Identity & Academic */}
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Identity & Academic</p>
@@ -268,7 +275,6 @@ function InfoTab({ student, onUpdated, readOnly, updateStudent }) {
                 <div><label className="text-xs text-gray-500 mb-1 block">APAAR ID</label><input value={form.apaar_id} onChange={f('apaar_id')} maxLength={20} className={inp} /></div>
               </div>
 
-              {saveErr && <p className="text-xs text-red-500">{saveErr}</p>}
             </div>
 
             <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
