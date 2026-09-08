@@ -272,7 +272,7 @@ const AdminFeeIndividual = () => {
       </div>
 
       {toast && (
-        <div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium ${
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] max-w-[92vw] px-4 py-3 rounded-xl text-sm font-medium shadow-lg ${
           toast.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
         }`}>{toast.message}</div>
       )}

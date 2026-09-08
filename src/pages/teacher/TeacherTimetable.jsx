@@ -62,7 +62,7 @@ const TeacherTimetable = () => {
       setToast({ type: 'success', message: 'Timetable saved successfully!' });
       setIsEditing(false);
     } catch (err) {
-      setToast({ type: 'error', message: 'Failed to save timetable' });
+      setToast({ type: 'error', message: err.response?.data?.message || 'Failed to save timetable' });
     }
     setSaving(false);
     setTimeout(() => setToast(null), 3000);

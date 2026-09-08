@@ -43,13 +43,13 @@ export default function AdminEnquiries() {
     try {
       await svc.updateEnquiry(e.id, { status });
       setEnquiries((prev) => prev.map((x) => (x.id === e.id ? { ...x, status } : x)));
-    } catch { showToast('error', 'Failed to update'); }
+    } catch (err) { showToast('error', err.response?.data?.message || 'Failed to update'); }
   };
 
   const remove = async (e) => {
     if (!confirm(`Delete enquiry from ${e.name}?`)) return;
     try { await svc.deleteEnquiry(e.id); setEnquiries((prev) => prev.filter((x) => x.id !== e.id)); showToast('success', 'Deleted'); }
-    catch { showToast('error', 'Failed to delete'); }
+    catch (err) { showToast('error', err.response?.data?.message || 'Failed to delete'); }
   };
 
   return (

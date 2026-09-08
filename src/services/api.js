@@ -21,9 +21,26 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor — auth redirect disabled for development
+// Response interceptor
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Some endpoints return HTTP 200 with an explicit { success: false } body
+    // (a "soft" failure). Axios does NOT reject those, so without this a caller's
+    // try/catch never fires and the UI silently proceeds as if it worked. Turn a
+    // definitive success:false into a rejection shaped like a normal Axios error
+    // so existing `err.response?.data?.message` handling surfaces it.
+    // NOTE: only reject on `success === false`. Bulk endpoints return
+    // { success: true, results, errors } for PARTIAL failures — those must stay
+    // resolved so callers can report per-row errors themselves.
+    const data = response?.data;
+    if (data && typeof data === 'object' && data.success === false) {
+      const err = new Error(data.message || 'Request failed');
+      err.response = response;
+      err.isSoftFail = true;
+      return Promise.reject(err);
+    }
+    return response;
+  },
   (error) => {
     // if (error.response?.status === 401) {
     //   localStorage.removeItem('token');

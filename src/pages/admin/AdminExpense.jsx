@@ -141,8 +141,8 @@ export default function AdminExpenditure() {
       await svc.deleteExpense(expense.id);
       setExpenses((prev) => prev.filter((e) => e.id !== expense.id));
       showToast('success', 'Expense deleted');
-    } catch {
-      showToast('error', 'Failed to delete');
+    } catch (e) {
+      showToast('error', e.response?.data?.message || 'Failed to delete');
     }
   };
 

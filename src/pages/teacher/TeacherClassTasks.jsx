@@ -63,7 +63,7 @@ const TeacherClassTasks = () => {
       setToast({ type: 'success', message: isUpdate ? 'Updated successfully!' : 'Saved successfully!' });
       setIsUpdate(true);
     } catch (err) {
-      setToast({ type: 'error', message: 'Failed to save. Please try again.' });
+      setToast({ type: 'error', message: err.response?.data?.message || 'Failed to save. Please try again.' });
     }
     setSaving(false);
     setTimeout(() => setToast(null), 3000);
