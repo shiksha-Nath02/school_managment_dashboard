@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Package, ShoppingCart, Plus, X, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, IndianRupee, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react';
+import { Package, ShoppingCart, Plus, X, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, IndianRupee, ChevronDown, ChevronUp, Download, Upload, ArrowLeftRight, Undo2 } from 'lucide-react';
 import svc from '@/services/uniformService';
 import CsvModal from '@/components/common/CsvModal';
 import UniformSellModal from '@/components/admin/UniformSellModal';
+import UniformExchangeModal from '@/components/admin/UniformExchangeModal';
 
 const ITEM_SUGGESTIONS = ['Shirt', 'Skirt', 'Pants', 'Blazer', 'Tie', 'Belt', 'Socks', 'Shoes', 'Sweater', 'Salwar'];
 const SIZE_SUGGESTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '28', '30', '32', '34', '36', '38'];
@@ -66,6 +67,9 @@ export default function AdminUniform() {
 
   // ── sell modal (dialog is a self-contained component; page only toggles it)
   const [sellModal, setSellModal]   = useState(false);
+
+  // ── exchange / return modal: { mode: 'exchange'|'return', txn }
+  const [exReturn, setExReturn]     = useState(null);
 
   // ── payment modal
   const [payModal, setPayModal]     = useState(null);
@@ -162,6 +166,13 @@ export default function AdminUniform() {
 
   // ── sell modal: on a successful sale, prepend the new txn and refresh stock.
   const handleSold = (txn) => { setTxns((prev) => [txn, ...prev]); loadItems(); };
+
+  // ── exchange / return done: replace the txn, refresh stock, note fee credits.
+  const handleExReturnDone = (updated, feeReceipt, label) => {
+    setTxns((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    loadItems();
+    showToast('success', feeReceipt ? `${label} — fee credit ${feeReceipt}` : label);
+  };
 
   // ── payment modal
   const openPayModal = (txn) => { setPayModal(txn); setPayForm({ amount: '', payment_date: today(), remarks: '', payment_method: 'cash' }); };
@@ -409,7 +420,12 @@ export default function AdminUniform() {
                       <div className="grid grid-cols-[2rem_1fr_auto] md:grid-cols-[2rem_1fr_1fr_5rem_6rem_6rem_6rem_7rem_auto] gap-3 px-6 py-3.5 items-center hover:bg-gray-50/50 transition-colors">
                         <span className="text-xs font-mono text-gray-400">{idx + 1}</span>
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">{txn.studentName}</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {txn.studentName}
+                            {txn.status === 'returned' && (
+                              <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-200 text-gray-600 align-middle">Returned</span>
+                            )}
+                          </p>
                           <p className="text-xs text-gray-400">{txn.admissionNumber || txn.fatherPhone || '—'}</p>
                           {txn.studentCategory && (
                             <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-50 text-brand-600">{txn.studentCategory}</span>
@@ -438,15 +454,23 @@ export default function AdminUniform() {
                         </span>
                         <span className="hidden md:inline text-xs text-gray-400 whitespace-nowrap">{fmtDateTime(txn.createdAt)}</span>
                         <div className="flex items-center gap-1.5 justify-end">
-                          {!fullyPaid && (
+                          {txn.status !== 'returned' && !fullyPaid && (
                             <button onClick={() => openPayModal(txn)} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors">
                               <IndianRupee className="w-3 h-3" /> Pay
                             </button>
                           )}
+                          {txn.status !== 'returned' && (
+                            <>
+                              <button onClick={() => setExReturn({ mode: 'exchange', txn })} title="Exchange size" className="text-gray-400 hover:text-brand-500 p-1 transition-colors"><ArrowLeftRight className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setExReturn({ mode: 'return', txn })} title="Return sale" className="text-gray-400 hover:text-amber-500 p-1 transition-colors"><Undo2 className="w-3.5 h-3.5" /></button>
+                            </>
+                          )}
                           <button onClick={() => setExpandedTxn(isExpanded ? null : txn.id)} className="text-gray-400 hover:text-gray-700 p-1">
                             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </button>
-                          <button onClick={() => handleDeleteTxn(txn)} className="text-gray-300 hover:text-red-500 p-1 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                          {txn.status !== 'returned' && (
+                            <button onClick={() => handleDeleteTxn(txn)} className="text-gray-300 hover:text-red-500 p-1 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                          )}
                         </div>
                       </div>
 
@@ -478,11 +502,12 @@ export default function AdminUniform() {
                               {p.remarks && <span className="text-gray-400 italic">{p.remarks}</span>}
                             </div>
                           ))}
-                          <div className="pt-2 border-t border-gray-200 flex gap-6 text-xs font-semibold">
+                          <div className="pt-2 border-t border-gray-200 flex flex-wrap gap-6 text-xs font-semibold">
                             {txn.discount > 0 && <span>Discount: <span className="text-amber-600">−{fmt(txn.discount)}</span></span>}
                             <span>To Pay: <span className="text-gray-700">{fmt(txn.toBePaid)}</span></span>
                             <span>Paid: <span className="text-emerald-600">{fmt(txn.paid)}</span></span>
                             <span>Left: <span className={txn.left <= 0 ? 'text-emerald-500' : 'text-red-500'}>{txn.left <= 0 ? 'Fully Paid' : fmt(txn.left)}</span></span>
+                            {txn.overpaid > 0 && <span>Credited to fees: <span className="text-blue-600">{fmt(txn.overpaid)}</span></span>}
                           </div>
                         </div>
                       )}
@@ -573,6 +598,16 @@ export default function AdminUniform() {
 
       {/* ────── SELL ITEM MODAL ────── */}
       <UniformSellModal open={sellModal} onClose={() => setSellModal(false)} onSold={handleSold} showToast={showToast} />
+
+      {/* ────── EXCHANGE / RETURN MODAL ────── */}
+      <UniformExchangeModal
+        open={!!exReturn}
+        mode={exReturn?.mode}
+        txn={exReturn?.txn}
+        onClose={() => setExReturn(null)}
+        onDone={handleExReturnDone}
+        showToast={showToast}
+      />
 
       {/* ────── ADD PAYMENT MODAL ────── */}
       {payModal && (
