@@ -11,6 +11,8 @@ const svc = {
   sellItemsMulti:   (data)     => api.post('/admin/uniform/transactions/multi', data).then((r) => r.data),
   lookupStudent:    (admission_number) => api.get('/admin/student-lookup', { params: { admission_number } }).then((r) => r.data),
   addPayment:       (id, data) => api.post(`/admin/uniform/transactions/${id}/payment`, data).then((r) => r.data),
+  exchangeItem:     (id, data) => api.post(`/admin/uniform/transactions/${id}/exchange`, data).then((r) => r.data),
+  returnTransaction:(id, data) => api.post(`/admin/uniform/transactions/${id}/return`, data).then((r) => r.data),
   deleteTransaction:(id)       => api.delete(`/admin/uniform/transactions/${id}`).then((r) => r.data),
 };
 
