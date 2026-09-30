@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { getStudentFeeDetails, recordPayment, reversePayment, getActiveSession, updateSessionFees } from '@/services/feeService';
+import { getStudentFeeDetails, recordPayment, deletePayment, getActiveSession, updateSessionFees } from '@/services/feeService';
 import api from '@/services/api';
-import { Receipt, Search, Undo2, Loader2, User, Download, Upload, Pencil } from 'lucide-react';
+import { Receipt, Search, Trash2, Loader2, User, Download, Upload, Pencil } from 'lucide-react';
 import CsvModal from '@/components/common/CsvModal';
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -47,8 +47,9 @@ const AdminFeeIndividual = () => {
   const [toast, setToast]               = useState(null);
   const [csvOpen, setCsvOpen]           = useState(false);
 
-  const [reversalTarget, setReversalTarget] = useState(null);
-  const [reversalReason, setReversalReason] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleting, setDeleting]         = useState(false);
 
   // ── assign / edit fee
   const [activeSession, setActiveSession] = useState(null);
@@ -112,15 +113,18 @@ const AdminFeeIndividual = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const handleReversal = async () => {
-    if (!reversalTarget) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    if (!deleteReason.trim()) { showToast('error', 'Please enter a reason'); return; }
+    setDeleting(true);
     try {
-      const res = await reversePayment(reversalTarget.id, reversalReason);
-      showToast('success', `Reversed! Receipt: ${res.data.reversal_receipt}`);
-      setReversalTarget(null); setReversalReason('');
+      await deletePayment(deleteTarget.id, deleteReason.trim());
+      showToast('success', 'Entry deleted');
+      setDeleteTarget(null); setDeleteReason('');
       const refreshed = await getStudentFeeDetails(selectedStudent.id);
       setFeeData(refreshed.data);
-    } catch (err) { showToast('error', err.response?.data?.message || 'Failed to reverse'); }
+    } catch (err) { showToast('error', err.response?.data?.message || 'Failed to delete'); }
+    setDeleting(false);
   };
 
   // ── assign / edit fee (active session)
@@ -471,8 +475,8 @@ const AdminFeeIndividual = () => {
                           </td>
                           <td className="px-4 py-3 text-center">
                             {e.kind === 'fee' && !e.is_reversal && !e.is_system ? (
-                              <button onClick={() => setReversalTarget(e.raw)} className="text-red-400 hover:text-red-600 transition-colors" title="Reverse payment">
-                                <Undo2 className="w-4 h-4" />
+                              <button onClick={() => setDeleteTarget(e.raw)} className="text-red-400 hover:text-red-600 transition-colors" title="Delete this payment (permanent — recorded in the deletion log)">
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             ) : e.is_reversal ? (
                               <span className="text-xs text-red-400 font-medium">Reversed</span>
@@ -538,28 +542,34 @@ const AdminFeeIndividual = () => {
         </div>
       )}
 
-      {/* Reversal Modal */}
-      {reversalTarget && (
+      {/* Delete Modal */}
+      {deleteTarget && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 font-display mb-2">Reverse Payment</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Reversing <strong>₹{Number(reversalTarget.amount_paid || 0).toLocaleString()}</strong> — Receipt <strong>{reversalTarget.receipt_number}</strong>
+            <h3 className="text-lg font-bold text-gray-800 font-display mb-2 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-500" /> Delete Entry
+            </h3>
+            <p className="text-sm text-gray-500 mb-3">
+              Deleting <strong>₹{Number(deleteTarget.amount_paid || 0).toLocaleString()}</strong>
+              {deleteTarget.receipt_number ? <> — Receipt <strong>{deleteTarget.receipt_number}</strong></> : null}
+            </p>
+            <p className="mb-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              This <strong>permanently deletes</strong> the payment and recomputes the student's balance (this month will show unpaid again). It cannot be undone — the deletion is recorded in the log shown in the <strong>Transactions</strong> tab.
             </p>
             <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Reason for reversal</label>
-              <input type="text" value={reversalReason} onChange={(e) => setReversalReason(e.target.value)}
-                placeholder="e.g. Duplicate entry, cheque bounced…"
+              <label className="block text-xs font-medium text-gray-500 mb-1">Reason for deletion *</label>
+              <input type="text" value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="e.g. Wrong amount, entered on wrong student…"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-400 outline-none" />
             </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => { setReversalTarget(null); setReversalReason(''); }}
+              <button onClick={() => { setDeleteTarget(null); setDeleteReason(''); }}
                 className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">
                 Cancel
               </button>
-              <button onClick={handleReversal}
-                className="px-5 py-2.5 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600 transition-colors">
-                Confirm Reversal
+              <button onClick={handleDelete} disabled={deleting}
+                className="flex items-center gap-2 px-5 py-2.5 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50">
+                {deleting && <Loader2 className="w-4 h-4 animate-spin" />} Confirm Delete
               </button>
             </div>
           </div>
