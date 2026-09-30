@@ -273,12 +273,8 @@ function buildOneCard(student, meta, layout) {
   const grade = computeGrade(total ? pct : null);
   const result = total ? (pct >= 33 ? 'Pass' : 'Fail') : '-';
   const remark = pickRemark(student);
-  const att = student.attendance || {};
-  const workingDays = att.total ?? null;
-  const presentDays = att.present ?? null;
-  const absentDays = (workingDays != null && presentDays != null)
-    ? Math.max(0, workingDays - presentDays)
-    : null;
+  // Attendance is intentionally left blank on the printed card — class teachers
+  // fill Working / Present / Absent days in by hand, so we do not auto-populate them.
   const classLabel = meta.section ? `${meta.className} (Section - ${meta.section})` : meta.className;
 
   const logo = meta.schoolLogo
@@ -301,9 +297,11 @@ function buildOneCard(student, meta, layout) {
   const coScholasticRows = CO_SCHOLASTIC_AREAS.map((area, i) => {
     const trailing = i === 0
       ? `<td class="att-cell" rowspan="${CO_SCHOLASTIC_AREAS.length}">
-           <div class="att-line"><span>Total Working Days</span><span class="att-v">${workingDays ?? '—'}</span></div>
-           <div class="att-line"><span>Total Present Days</span><span class="att-v">${presentDays ?? '—'}</span></div>
-           <div class="att-line"><span>Total Absent Days</span><span class="att-v">${absentDays ?? '—'}</span></div>
+           <table class="att-tbl">
+             <tr><td class="att-k">Total Working Days</td><td class="att-b"></td></tr>
+             <tr><td class="att-k">Total Present Days</td><td class="att-b"></td></tr>
+             <tr><td class="att-k">Total Absent Days</td><td class="att-b"></td></tr>
+           </table>
          </td>
          <td class="scale-cell" rowspan="${CO_SCHOLASTIC_AREAS.length}">
            ${GRADE_SCALE.map((g) => `<div class="scale-line"><span class="scale-g">${g.grade}</span><span>${g.range}</span></div>`).join('')}
@@ -430,11 +428,15 @@ const STYLES = `
   .coscho th:nth-child(1), .coscho td.cs-area { width: 28%; }
   .coscho th:nth-child(2), .coscho td.cs-grade { width: 14%; text-align: center; }
   .coscho th:nth-child(3), .coscho td.att-cell { width: 30%; }
+  .coscho td.att-cell { padding: 0; }
   .coscho th:nth-child(4), .coscho td.scale-cell { width: 28%; }
   .coscho .cs-area { font-weight: 600; }
-  .att-line, .scale-line { display: flex; justify-content: space-between; gap: 8px;
-                           padding: 1px 0; }
-  .att-line .att-v { font-weight: 700; }
+  /* Attendance: a bordered table with blank cells the class teacher fills by hand. */
+  .att-tbl { width: 100%; height: 100%; border-collapse: collapse; }
+  .att-tbl td { border: 1px solid #999; padding: 5px 6px; font-size: 11px; }
+  .att-tbl .att-k { text-align: left; }
+  .att-tbl .att-b { width: 34%; }
+  .scale-line { display: flex; justify-content: space-between; gap: 8px; padding: 1px 0; }
   .scale-line .scale-g { font-weight: 700; width: 26px; }
   .remark { margin-top: 10px; font-size: 12px; border: 1px solid #999; padding: 8px;
             min-height: 44px; }

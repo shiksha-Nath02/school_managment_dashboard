@@ -122,22 +122,26 @@ const AdminTransactions = () => {
                 </tr>
               </thead>
               <tbody>
-                {txns.map((txn, i) => (
-                  <tr key={txn.id} className={`border-t border-gray-100 ${i % 2 === 0 ? '' : 'bg-gray-50/30'}`}>
-                    <td className="px-4 py-2.5 text-sm text-gray-500 tabular-nums whitespace-nowrap">{txn.date}</td>
-                    <td className="px-4 py-2.5">
+                {txns.map((txn, i) => {
+                  const isDeleted = txn.direction === 'none';
+                  return (
+                  <tr key={txn.id} className={`border-t border-gray-100 ${isDeleted ? 'bg-red-50/40 opacity-70' : (i % 2 === 0 ? '' : 'bg-gray-50/30')}`}>
+                    <td className="px-4 py-2.5 text-sm text-gray-500 tabular-nums whitespace-nowrap align-top">{txn.date}</td>
+                    <td className="px-4 py-2.5 align-top">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        txn.direction === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-                      }`}>{txn.type}</span>
+                        isDeleted ? 'bg-gray-200 text-gray-600'
+                        : txn.direction === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
+                      }`}>{isDeleted ? 'Deleted' : txn.type}</span>
                     </td>
-                    <td className="px-4 py-2.5 text-sm text-gray-600 truncate max-w-md">{txn.description || '—'}</td>
-                    <td className={`px-4 py-2.5 text-sm text-right font-semibold tabular-nums whitespace-nowrap ${
-                      txn.direction === 'income' ? 'text-green-600' : 'text-red-500'
+                    <td className={`px-4 py-2.5 text-sm text-gray-600 align-top ${isDeleted ? 'max-w-md' : 'truncate max-w-md'}`}>{txn.description || '—'}</td>
+                    <td className={`px-4 py-2.5 text-sm text-right font-semibold tabular-nums whitespace-nowrap align-top ${
+                      isDeleted ? 'text-gray-400 line-through' : txn.direction === 'income' ? 'text-green-600' : 'text-red-500'
                     }`}>
-                      {txn.direction === 'income' ? '+' : '-'}{fmtMoney(Math.abs(txn.amount))}
+                      {isDeleted ? fmtMoney(Math.abs(txn.amount)) : `${txn.direction === 'income' ? '+' : '-'}${fmtMoney(Math.abs(txn.amount))}`}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
