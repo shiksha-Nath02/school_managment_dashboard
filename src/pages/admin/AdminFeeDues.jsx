@@ -50,10 +50,10 @@ const AdminFeeDues = () => {
   const clearFilters = () => { setFilterSearch(''); setFilterMinDue(''); setFilterCategory(''); };
 
   const exportCsv = () => {
-    const header = ['Adm No', 'Student Name', 'Class', 'Phone', 'Pending', 'Fine', 'Total Due', 'Last Payment'];
+    const header = ['Adm No', 'Student Name', 'Class', 'Phone', 'Fees', 'Uniform', 'Book', 'Annual', 'Fine', 'Total Due', 'Last Payment'];
     const rows   = filteredStudents.map((s) => [
       s.admission_number ?? s.id, `"${s.name || ''}"`, `"${s.class || ''}"`, `"${s.father_phone || ''}"`,
-      s.pending || 0, s.fine || 0, s.total_due || 0,
+      s.pending || 0, s.uniform_due || 0, s.book_due || 0, s.annual_due || 0, s.fine || 0, s.total_due || 0,
       s.last_billing_month ? `${s.last_billing_month}/${s.last_billing_year}` : 'Never',
     ]);
     const csv  = [header, ...rows].map((r) => r.join(',')).join('\n');
@@ -71,7 +71,7 @@ const AdminFeeDues = () => {
           <h1 className="text-2xl font-bold text-gray-800 font-display flex items-center gap-2">
             <AlertCircle className="w-6 h-6 text-brand-500" /> Students with Dues
           </h1>
-          <p className="text-gray-400 text-sm mt-1">All students with pending fee payments</p>
+          <p className="text-gray-400 text-sm mt-1">Students with any outstanding dues — fees, uniform, book or annual charge</p>
         </div>
         {showMoney && (
           <button onClick={exportCsv} className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all">
@@ -148,10 +148,10 @@ const AdminFeeDues = () => {
             <thead className="bg-gray-50">
               <tr>
                 {(showMoney
-                  ? ['Adm No', 'Student', 'Class', 'Phone', 'Pending', 'Fine', 'Total Due', 'Last Payment']
+                  ? ['Adm No', 'Student', 'Class', 'Phone', 'Fees', 'Uniform', 'Book', 'Annual', 'Fine', 'Total Due', 'Last Payment']
                   : ['Adm No', 'Student', 'Class', 'Phone', 'Last Payment']
                 ).map(h => (
-                  <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-400 uppercase ${['Pending', 'Fine', 'Total Due'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
+                  <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-400 uppercase ${['Fees', 'Uniform', 'Book', 'Annual', 'Fine', 'Total Due'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -168,7 +168,10 @@ const AdminFeeDues = () => {
                   </td>
                   {showMoney && (
                     <>
-                      <td className="px-4 py-3 text-sm text-right font-semibold text-red-500 tabular-nums">{fmtMoney(item.pending)}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600 tabular-nums">{item.pending > 0 ? fmtMoney(item.pending) : '—'}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600 tabular-nums">{item.uniform_due > 0 ? fmtMoney(item.uniform_due) : '—'}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600 tabular-nums">{item.book_due > 0 ? fmtMoney(item.book_due) : '—'}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600 tabular-nums">{item.annual_due > 0 ? fmtMoney(item.annual_due) : '—'}</td>
                       <td className="px-4 py-3 text-sm text-right text-amber-500 tabular-nums">{item.fine > 0 ? fmtMoney(item.fine) : '—'}</td>
                       <td className="px-4 py-3 text-sm text-right font-bold text-red-600 font-display tabular-nums">{fmtMoney(item.total_due)}</td>
                     </>

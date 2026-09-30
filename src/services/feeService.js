@@ -18,6 +18,9 @@ export const getStudentFeeDetails = (studentId) => api.get(`/admin/fees/student/
 export const recordPayment = (data) => api.post('/admin/fees/pay', data);
 export const reversePayment = (paymentId, reason) =>
   api.post(`/admin/fees/reverse/${paymentId}`, { reason });
+// Auditable soft-delete of a wrong entry (kept in the log, excluded from balances).
+export const deletePayment = (paymentId, reason) =>
+  api.delete(`/admin/fees/payment/${paymentId}`, { data: { reason } });
 
 // ===== BULK PAYMENT =====
 export const recordBulkPayment = (data) => api.post('/admin/fees/bulk-pay', data);
