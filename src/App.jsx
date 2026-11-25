@@ -49,6 +49,7 @@ import {
 import AdminAddStudent from './pages/admin/AdminAddStudent';
 import AdminStaff from './pages/admin/AdminStaff';
 import AdminEnquiries from './pages/admin/AdminEnquiries';
+import AdminVisitors from './pages/admin/AdminVisitors';
 import AdminTeacherAttendanceReport from './pages/admin/AdminTeacherAttendanceReport';
 import AdminFeeBulk from './pages/admin/AdminFeeBulk';
 import AdminTransactions from './pages/admin/AdminTransactions';
@@ -134,6 +135,7 @@ export default function App() {
         <Route path="expenditure" element={<AdminExpenditure />} />
         <Route path="staff" element={<AdminStaff />} />
         <Route path="enquiries" element={<AdminEnquiries />} />
+        <Route path="visitors" element={<AdminVisitors />} />
         {/* Old paths now merged into Expenditure */}
         <Route path="stationery" element={<Navigate to="/admin/expenditure" replace />} />
         <Route path="pantry" element={<Navigate to="/admin/expenditure" replace />} />

@@ -159,6 +159,7 @@ export const SIDEBAR_NAV = {
         { key: 'reports', label: 'Student Reports', icon: 'FileText', path: '/admin/reports' },
         { key: 'student-attendance', label: 'Student Attendance', icon: 'CalendarCheck', path: '/admin/student-attendance' },
         { key: 'enquiries', label: 'Enquiries', icon: 'Inbox', path: '/admin/enquiries' },
+        { key: 'visitors', label: 'Visitor Log', icon: 'DoorOpen', path: '/admin/visitors' },
       ],
     },
     {
