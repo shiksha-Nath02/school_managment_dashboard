@@ -14,6 +14,18 @@ const labelCls = 'text-xs font-semibold text-gray-400 uppercase tracking-wide';
 
 const EMPTY = { name: '', phone: '', whomToMeet: '', purpose: '', numPersons: 1, remarks: '' };
 
+// Common front-desk visit reasons. "Other" reveals a free-text box.
+const PURPOSE_OPTIONS = [
+  'Fees',
+  'Admission Enquiry',
+  'Complaint',
+  'Meet Teacher',
+  'Meet Principal',
+  'Document Collection',
+  'Vendor / Delivery',
+  'Other',
+];
+
 export default function AdminVisitors() {
   const [visitors, setVisitors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +33,7 @@ export default function AdminVisitors() {
   const [date, setDate] = useState(todayISO());
   const [q, setQ] = useState('');
   const [form, setForm] = useState(EMPTY);
+  const [purposeSel, setPurposeSel] = useState(''); // dropdown selection; 'Other' = custom text
   const [saving, setSaving] = useState(false);
 
   const showToast = useCallback((type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 4000); }, []);
@@ -47,6 +60,12 @@ export default function AdminVisitors() {
 
   const setField = (k, val) => setForm((f) => ({ ...f, [k]: val }));
 
+  const onPurposeSelect = (val) => {
+    setPurposeSel(val);
+    // For a preset, store it directly; for "Other", clear so the text box drives it.
+    setField('purpose', val === 'Other' ? '' : val);
+  };
+
   const add = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) { showToast('error', 'Visitor name is required'); return; }
@@ -54,6 +73,7 @@ export default function AdminVisitors() {
     try {
       await svc.createVisitor({ ...form, visitDate: date });
       setForm(EMPTY);
+      setPurposeSel('');
       showToast('success', 'Visitor logged');
       load();
     } catch (err) { showToast('error', err.response?.data?.message || 'Failed to log visitor'); }
@@ -109,7 +129,15 @@ export default function AdminVisitors() {
           </div>
           <div className="flex flex-col gap-1 lg:col-span-2">
             <label className={labelCls}>Purpose</label>
-            <input value={form.purpose} onChange={(e) => setField('purpose', e.target.value)} className={inputCls} placeholder="Reason for visit" />
+            <div className="flex gap-2">
+              <select value={purposeSel} onChange={(e) => onPurposeSelect(e.target.value)} className={`${inputCls} ${purposeSel === 'Other' ? 'sm:max-w-[45%]' : ''}`}>
+                <option value="">Select reason…</option>
+                {PURPOSE_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              {purposeSel === 'Other' && (
+                <input value={form.purpose} onChange={(e) => setField('purpose', e.target.value)} className={inputCls} placeholder="Specify reason" autoFocus />
+              )}
+            </div>
           </div>
           <div className="flex flex-col gap-1">
             <label className={labelCls}>No. of persons</label>
