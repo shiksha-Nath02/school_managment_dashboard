@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Loader2, CheckCircle2, AlertCircle, Trash2, Phone, UserPlus, LogOut, RotateCcw, Search, DoorOpen, Users, Clock } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Loader2, CheckCircle2, AlertCircle, Trash2, Phone, UserPlus, LogOut, RotateCcw, Search, DoorOpen, Users, Clock, Camera, Upload, X } from 'lucide-react';
 import svc from '@/services/visitorService';
+import CameraCapture from '@/components/common/CameraCapture';
 
 const todayISO = () => {
   const n = new Date();
@@ -12,7 +13,7 @@ const fmtTime = (d) => (d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-d
 const inputCls = 'border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-brand-400 bg-white w-full';
 const labelCls = 'text-xs font-semibold text-gray-400 uppercase tracking-wide';
 
-const EMPTY = { name: '', phone: '', whomToMeet: '', purpose: '', numPersons: 1, remarks: '' };
+const EMPTY = { name: '', phone: '', whomToMeet: '', purpose: '', numPersons: 1, remarks: '', photo: '' };
 
 // Common front-desk visit reasons. "Other" reveals a free-text box.
 const PURPOSE_OPTIONS = [
@@ -35,6 +36,8 @@ export default function AdminVisitors() {
   const [form, setForm] = useState(EMPTY);
   const [purposeSel, setPurposeSel] = useState(''); // dropdown selection; 'Other' = custom text
   const [saving, setSaving] = useState(false);
+  const [camOpen, setCamOpen] = useState(false);
+  const fileRef = useRef(null);
 
   const showToast = useCallback((type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 4000); }, []);
 
@@ -64,6 +67,16 @@ export default function AdminVisitors() {
     setPurposeSel(val);
     // For a preset, store it directly; for "Other", clear so the text box drives it.
     setField('purpose', val === 'Other' ? '' : val);
+  };
+
+  const onPickFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { showToast('error', 'Please choose an image file'); e.target.value = ''; return; }
+    const reader = new FileReader();
+    reader.onload = () => setField('photo', reader.result); // base64 data URL; backend compresses + stores in S3
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const add = async (e) => {
@@ -143,9 +156,26 @@ export default function AdminVisitors() {
             <label className={labelCls}>No. of persons</label>
             <input type="number" min="1" value={form.numPersons} onChange={(e) => setField('numPersons', e.target.value)} className={inputCls} />
           </div>
-          <div className="flex flex-col gap-1 lg:col-span-3">
+          <div className="flex flex-col gap-1 lg:col-span-2">
             <label className={labelCls}>Remarks</label>
             <input value={form.remarks} onChange={(e) => setField('remarks', e.target.value)} className={inputCls} placeholder="Optional notes" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className={labelCls}>Photo</label>
+            <div className="flex items-center gap-3">
+              {form.photo ? (
+                <div className="relative">
+                  <img src={form.photo} alt="visitor" className="w-16 h-16 rounded-xl object-cover border border-gray-200" />
+                  <button type="button" onClick={() => setField('photo', '')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5" title="Remove photo"><X className="w-3.5 h-3.5" /></button>
+                </div>
+              ) : (
+                <>
+                  <button type="button" onClick={() => setCamOpen(true)} className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-600 hover:border-brand-400"><Camera className="w-4 h-4" /> Camera</button>
+                  <button type="button" onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-600 hover:border-brand-400"><Upload className="w-4 h-4" /> Upload</button>
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
+                </>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -188,6 +218,11 @@ export default function AdminVisitors() {
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase mt-0.5 ${v.timeOut ? 'bg-gray-100 text-gray-500' : 'bg-emerald-100 text-emerald-700'}`}>
                   {v.timeOut ? 'left' : 'in'}
                 </span>
+                {v.photoUrl && (
+                  <a href={v.photoUrl} target="_blank" rel="noreferrer" className="shrink-0">
+                    <img src={v.photoUrl} alt={v.name} className="w-11 h-11 rounded-lg object-cover border border-gray-200" />
+                  </a>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-800">
                     {v.name}
@@ -215,6 +250,14 @@ export default function AdminVisitors() {
           ))}
         </div>
       )}
+
+      <CameraCapture
+        open={camOpen}
+        onClose={() => setCamOpen(false)}
+        onCapture={(dataUrl) => { setField('photo', dataUrl); setCamOpen(false); }}
+        title="Visitor photo"
+        hint="Capture the visitor's photo"
+      />
     </div>
   );
 }
